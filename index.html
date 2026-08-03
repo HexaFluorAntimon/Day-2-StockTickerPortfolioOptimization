@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AURA | GenAI Financial Overview 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased selection:bg-indigo-500 selection:text-white min-h-screen flex flex-col">
+
+  <!-- TOP LIVE MARKET TICKER TAPE -->
+  <div class="ticker-tape-container border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md py-2 overflow-hidden text-xs font-mono select-none">
+    <div class="ticker-tape flex items-center gap-8 whitespace-nowrap animate-marquee" id="ticker-tape">
+      <!-- Dynamically filled ticker items -->
+    </div>
+  </div>
+
+  <!-- MAIN APP HEADER -->
+  <header class="sticky top-0 z-40 bg-slate-950/80 backdrop-blur-xl border-b border-slate-800/60 px-4 lg:px-8 py-3.5 flex items-center justify-between gap-4">
+    <!-- Brand Logo -->
+    <div class="flex items-center gap-3">
+      <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-600 to-cyan-500 p-0.5 shadow-lg shadow-indigo-500/20">
+        <div class="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
+          <span class="font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 text-lg">A</span>
+        </div>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-extrabold tracking-tight text-white text-lg">AURA</span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 tracking-wide uppercase">2026 SaaS</span>
+        </div>
+        <p class="text-xs text-slate-400 font-medium">GenAI Financial Intelligence</p>
+      </div>
+    </div>
+
+    <!-- Center Search & Quick Select Tickers -->
+    <div class="hidden md:flex items-center gap-3 max-w-xl w-full">
+      <div class="relative w-full">
+        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+        <input 
+          id="ticker-search" 
+          type="text" 
+          placeholder="Search Ticker (e.g. NVDA, AAPL, BTC, MSFT)..." 
+          class="w-full pl-10 pr-12 py-2 text-sm bg-slate-900/90 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition font-mono"
+          autocomplete="off"
+        />
+        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+          <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-slate-400 bg-slate-800 border border-slate-700 rounded">⌘K</kbd>
+        </div>
+        <!-- Search Autocomplete Dropdown -->
+        <div id="search-results-dropdown" class="hidden absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden max-h-64 overflow-y-auto">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Quick Actions -->
+    <div class="flex items-center gap-3">
+      <!-- API Status Button -->
+      <button id="btn-open-api-modal" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition group">
+        <span class="relative flex h-2 w-2">
+          <span id="api-status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span id="api-status-dot" class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+        <span id="api-status-label" class="hidden sm:inline">API Config</span>
+        <svg class="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      </button>
+
+      <!-- Refresh Data Button -->
+      <button id="btn-refresh" title="Sync Market Data" class="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-indigo-400 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- QUICK TICKER SELECTOR BAR -->
+  <div class="border-b border-slate-800/40 bg-slate-950 px-4 lg:px-8 py-2.5 flex items-center justify-between gap-4 overflow-x-auto no-scrollbar">
+    <div class="flex items-center gap-2 text-xs">
+      <span class="text-slate-500 font-medium uppercase tracking-wider text-[11px] mr-1">Trending:</span>
+      <div id="quick-ticker-pills" class="flex items-center gap-1.5">
+        <!-- Populated dynamically -->
+      </div>
+    </div>
+    <div class="hidden lg:flex items-center gap-3 text-xs text-slate-400 font-mono">
+      <span>2026 Market Time: <strong class="text-slate-200">16:00 EST</strong></span>
+      <span class="w-1 h-1 rounded-full bg-slate-700"></span>
+      <span class="text-emerald-400 flex items-center gap-1">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        US Markets Open
+      </span>
+    </div>
+  </div>
+
+  <!-- MAIN DASHBOARD CONTENT -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+
+    <!-- HERO OVERVIEW BANNER CARD -->
+    <div id="hero-card" class="relative rounded-2xl bg-gradient-to-b from-slate-900/90 to-slate-900/50 border border-slate-800/80 p-6 shadow-xl backdrop-blur-md overflow-hidden">
+      <!-- Glow Accent -->
+      <div class="absolute -right-20 -top-20 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+        <!-- Left: Ticker Title & Details -->
+        <div class="space-y-3">
+          <div class="flex items-center gap-3 flex-wrap">
+            <h1 id="hero-ticker-symbol" class="text-3xl lg:text-4xl font-extrabold tracking-tight text-white font-mono">NVDA</h1>
+            <span id="hero-company-name" class="text-lg font-semibold text-slate-300">NVIDIA Corporation</span>
+            <span id="hero-sector-tag" class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700/60">Semiconductors</span>
+            <span id="hero-ytd-tag" class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">+48.2% 2026 YTD</span>
+          </div>
+
+          <!-- Price & Change -->
+          <div class="flex items-baseline gap-4">
+            <span id="hero-price" class="text-4xl lg:text-5xl font-black font-mono text-white tracking-tight">$148.25</span>
+            <div id="hero-change-container" class="flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono font-bold text-lg">
+              <span id="hero-change-icon">▲</span>
+              <span id="hero-change-dollar">+$4.90</span>
+              <span id="hero-change-pct">(+3.42%)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Day Range & 52-Week Bars -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:w-96 bg-slate-950/60 p-4 rounded-xl border border-slate-800/60 text-xs font-mono">
+          <div>
+            <div class="flex justify-between text-slate-400 mb-1">
+              <span>Day Low</span>
+              <span>Day High</span>
+            </div>
+            <div class="flex justify-between text-slate-200 font-semibold mb-1.5">
+              <span id="hero-day-low">$144.10</span>
+              <span id="hero-day-high">$149.80</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div id="hero-day-bar" class="h-full bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full" style="width: 72%"></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between text-slate-400 mb-1">
+              <span>52W Low</span>
+              <span>52W High</span>
+            </div>
+            <div class="flex justify-between text-slate-200 font-semibold mb-1.5">
+              <span id="hero-52w-low">$92.40</span>
+              <span id="hero-52w-high">$154.00</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div id="hero-52w-bar" class="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full" style="width: 88%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN GRID: CHART & AI RESEARCH -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- LEFT COLUMN: INTERACTIVE CHART & TIMEFRAME CONTROLS (2 Cols) -->
+      <div class="lg:col-span-2 space-y-6">
+
+        <!-- Price Chart Card -->
+        <div class="rounded-2xl bg-slate-900/80 border border-slate-800/80 p-5 shadow-xl backdrop-blur-md flex flex-col justify-between space-y-4">
+          <!-- Chart Header & Timeframe Switcher -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/60">
+            <div class="flex items-center gap-3">
+              <h2 class="text-base font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+                Price Action & Volume
+              </h2>
+              <span class="text-xs font-mono text-slate-400">90 Daily Bars</span>
+            </div>
+
+            <!-- Timeframe Selector Pills -->
+            <div id="timeframe-pills" class="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-mono">
+              <button data-tf="1D" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition">1D</button>
+              <button data-tf="1W" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition">1W</button>
+              <button data-tf="1M" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition">1M</button>
+              <button data-tf="3M" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold shadow">3M</button>
+              <button data-tf="YTD" class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition">2026 YTD</button>
+            </div>
+          </div>
+
+          <!-- Indicator Toggle Overlay Controls -->
+          <div class="flex items-center justify-between gap-2 overflow-x-auto text-xs font-mono py-1 border-b border-slate-800/40 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-slate-500 uppercase text-[10px] tracking-wider font-sans">Overlays:</span>
+              <button id="toggle-sma50" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-medium hover:bg-indigo-500/20 transition flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-indigo-400"></span> 50 SMA
+              </button>
+              <button id="toggle-sma200" class="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 font-medium hover:bg-amber-500/20 transition flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-400"></span> 200 SMA
+              </button>
+              <button id="toggle-bollinger" class="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-300 font-medium hover:bg-purple-500/20 transition flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-purple-400"></span> Bollinger Bands
+              </button>
+              <button id="toggle-volume" class="px-2.5 py-1 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-medium hover:bg-cyan-500/20 transition flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Volume
+              </button>
+            </div>
+
+            <!-- Chart Style Switcher -->
+            <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-[11px]">
+              <button id="btn-chart-area" class="px-2 py-0.5 rounded font-semibold bg-indigo-600 text-white shadow">Area</button>
+              <button id="btn-chart-candle" class="px-2 py-0.5 rounded font-semibold text-slate-400 hover:text-white transition">Candles</button>
+            </div>
+          </div>
+
+          <!-- Dynamic Live OHLC Hover Readout Bar -->
+          <div id="ohlc-readout-bar" class="flex items-center justify-between text-xs font-mono bg-slate-950/70 px-3 py-1.5 rounded-lg border border-slate-800/60 text-slate-300">
+            <span id="ohlc-date" class="font-bold text-indigo-400">Latest Bar</span>
+            <div class="flex items-center gap-3">
+              <span>O: <strong id="ohlc-open" class="text-white">$0.00</strong></span>
+              <span>H: <strong id="ohlc-high" class="text-emerald-400">$0.00</strong></span>
+              <span>L: <strong id="ohlc-low" class="text-rose-400">$0.00</strong></span>
+              <span>C: <strong id="ohlc-close" class="text-white">$0.00</strong></span>
+              <span>Vol: <strong id="ohlc-vol" class="text-cyan-400">0M</strong></span>
+            </div>
+          </div>
+
+          <!-- Chart Canvas Container -->
+          <div class="relative w-full h-[340px]">
+            <canvas id="priceChart"></canvas>
+            <!-- Loading overlay -->
+            <div id="chart-loader" class="hidden absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center rounded-xl z-10">
+              <div class="flex items-center gap-3 px-4 py-2 bg-slate-900 rounded-xl border border-slate-800 text-sm text-slate-300 font-mono">
+                <svg class="animate-spin h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Fetching Market Bars...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2026 VALUATION & FUNDAMENTALS METRICS GRID -->
+        <div class="rounded-2xl bg-slate-900/80 border border-slate-800/80 p-5 shadow-xl backdrop-blur-md space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800/60">
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+              2026 Fundamental & Valuation Metrics
+            </h2>
+            <span class="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-semibold">Q3 2026 Updated</span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+            <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60 space-y-1">
+              <span class="text-slate-500 text-[11px]">Market Cap</span>
+              <p id="metric-market-cap" class="text-base font-bold text-white">$3.64T</p>
+            </div>
+            <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60 space-y-1">
+              <span class="text-slate-500 text-[11px]">P/E Ratio (TTM)</span>
+              <p id="metric-pe" class="text-base font-bold text-slate-200">48.2x</p>
+            </div>
+            <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60 space-y-1">
+              <span class="text-slate-500 text-[11px]">Forward P/E 2026</span>
+              <p id="metric-fwd-pe" class="text-base font-bold text-indigo-400">38.4x</p>
+            </div>
+            <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60 space-y-1">
+              <span class="text-slate-500 text-[11px]">EPS Growth 2026e</span>
+              <p id="metric-eps-growth" class="text-base font-bold text-emerald-400">+28.4%</p>
+            </div>
+            <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60 space-y-1">
+              <span class="text-slate-500 text-[11px]">Revenue YoY</span>
+              <p id="metric-rev-growth" class="text-base font-bold text-slate-200">+22.1%</p>
+            </div>
+            <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60 space-y-1">
+              <span class="text-slate-500 text-[11px]">Free Cash Flow</span>
+              <p id="metric-fcf" class="text-base font-bold text-slate-200">$18.4B</p>
+            </div>
+            <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60 space-y-1">
+              <span class="text-slate-500 text-[11px]">Beta (1Y)</span>
+              <p id="metric-beta" class="text-base font-bold text-slate-200">1.24</p>
+            </div>
+            <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/60 space-y-1">
+              <span class="text-slate-500 text-[11px]">Analyst Target</span>
+              <p id="metric-target" class="text-base font-bold text-cyan-400">$182.00 <span class="text-[10px] text-emerald-400">(+22%)</span></p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT COLUMN: GENAI RESEARCH & SIGNALS (1 Col) -->
+      <div class="space-y-6">
+
+        <!-- GENAI 2026 RESEARCH CARD -->
+        <div class="rounded-2xl bg-gradient-to-b from-slate-900 to-slate-900/90 border border-indigo-500/30 p-5 shadow-2xl backdrop-blur-md relative overflow-hidden space-y-4">
+          <!-- Ambient Glow Badge -->
+          <div class="absolute -right-10 -top-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+          <!-- Card Title Header -->
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800/80">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+              <h2 class="text-base font-bold text-white">GenAI Research Synthesis</h2>
+            </div>
+            <span id="ai-model-badge" class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">Claude Sonnet 5</span>
+          </div>
+
+          <!-- Sentiment Gauge & Rating -->
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800/80 flex items-center justify-between gap-3">
+            <div>
+              <span class="text-[11px] text-slate-500 font-sans uppercase tracking-wider block mb-0.5">2026 AI Conviction</span>
+              <span id="ai-sentiment-label" class="font-bold text-sm text-emerald-400">Strong Bullish Expansion</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-12 h-12 rounded-full border-2 border-emerald-500 flex items-center justify-center font-mono font-black text-sm text-white bg-emerald-500/10" id="ai-score-badge">
+                84
+              </div>
+            </div>
+          </div>
+
+          <!-- Synthesis Prompt Focus Preset Selector -->
+          <div class="flex items-center justify-between gap-2 text-xs">
+            <span class="text-slate-400 font-medium">Focus:</span>
+            <select id="ai-preset-select" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-sans">
+              <option value="General">General 2026 Outlook</option>
+              <option value="Valuation">Valuation & Cash Flow</option>
+              <option value="Earnings">Earnings Catalyst 2026</option>
+              <option value="Technical">Technical Breakout</option>
+            </select>
+          </div>
+
+          <!-- Research Note Paragraph -->
+          <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800/60 space-y-3">
+            <p id="ai-note-text" class="text-xs text-slate-300 leading-relaxed font-sans">
+              Loading GenAI 2026 financial analysis...
+            </p>
+          </div>
+
+          <!-- Key 2026 Catalysts Bullet List -->
+          <div class="space-y-2">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider font-mono">Key 2026 Catalysts:</span>
+            <ul id="ai-drivers-list" class="space-y-2 text-xs text-slate-300 font-sans">
+              <!-- Dynamically populated -->
+            </ul>
+          </div>
+
+          <!-- Action Button: Re-Generate Synthesis -->
+          <button id="btn-regenerate-ai" class="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Re-Synthesize Report
+          </button>
+        </div>
+
+        <!-- TECHNICAL INDICATORS SIGNAL RADAR -->
+        <div class="rounded-2xl bg-slate-900/80 border border-slate-800/80 p-5 shadow-xl backdrop-blur-md space-y-4 font-mono text-xs">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800/60">
+            <h2 class="text-base font-bold text-white font-sans flex items-center gap-2">
+              <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+              Technical Signal Radar
+            </h2>
+            <span class="text-[10px] text-slate-400">1D Interval</span>
+          </div>
+
+          <div class="space-y-3">
+            <!-- RSI Meter -->
+            <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 space-y-1.5">
+              <div class="flex justify-between items-center text-slate-300">
+                <span>RSI (14)</span>
+                <span id="radar-rsi-val" class="font-bold text-indigo-400">62.4</span>
+              </div>
+              <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden flex">
+                <div id="radar-rsi-bar" class="h-full bg-gradient-to-r from-cyan-500 via-indigo-500 to-rose-500" style="width: 62.4%"></div>
+              </div>
+              <span id="radar-rsi-status" class="text-[10px] text-slate-400 block text-right">Neutral / Slightly Bullish</span>
+            </div>
+
+            <!-- MACD -->
+            <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 flex items-center justify-between">
+              <div>
+                <span class="text-slate-400 text-[11px] block">MACD Signal</span>
+                <span id="radar-macd-val" class="font-bold text-emerald-400">+2.48 Crossover</span>
+              </div>
+              <span class="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold">BUY</span>
+            </div>
+
+            <!-- Moving Average Trend -->
+            <div class="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 flex items-center justify-between">
+              <div>
+                <span class="text-slate-400 text-[11px] block">50 / 200 SMA</span>
+                <span id="radar-ma-trend" class="font-bold text-slate-200">Golden Cross Active</span>
+              </div>
+              <span class="px-2 py-1 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[10px] font-bold">BULLISH</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- BOTTOM ROW: 2026 MARKET NEWS & CATALYSTS FEED -->
+    <div class="rounded-2xl bg-slate-900/80 border border-slate-800/80 p-5 shadow-xl backdrop-blur-md space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800/60">
+        <h2 class="text-base font-bold text-white flex items-center gap-2">
+          <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
+          2026 Market Intelligence & Catalysts
+        </h2>
+        <span class="text-xs font-mono text-slate-400">Live Bloomberg & Reuters Feed</span>
+      </div>
+
+      <div id="news-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- News Cards populated by JS -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-800/60 bg-slate-950 py-6 px-4 lg:px-8 text-center text-xs text-slate-500 font-mono space-y-2">
+    <div class="flex items-center justify-center gap-4 text-slate-400">
+      <span>AURA GenAI Finance &copy; 2026</span>
+      <span>•</span>
+      <span>Twelve Data API</span>
+      <span>•</span>
+      <span>OpenRouter AI</span>
+    </div>
+    <p>Financial intelligence powered by real-time time-series indicators and multi-model LLM research notes.</p>
+    <p class="text-indigo-400/90 font-semibold text-xs pt-1">🍺 All rights and beer reserved by JLMG</p>
+  </footer>
+
+  <!-- API CREDENTIALS SLIDE-OVER MODAL / DRAWER -->
+  <div id="api-modal" class="hidden fixed inset-0 z-50 overflow-hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-5">
+      <!-- Close Button -->
+      <button id="btn-close-api-modal" class="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+
+      <div class="space-y-1">
+        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+          <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 0121 9z"/></svg>
+          API Keys & Credentials
+        </h3>
+        <p class="text-xs text-slate-400">Configure your keys to enable live Twelve Data market streams and OpenRouter LLM research synthesis.</p>
+      </div>
+
+      <form id="api-keys-form" class="space-y-4">
+        <div class="space-y-1.5">
+          <label for="twelvedata-key" class="text-xs font-mono font-semibold text-slate-300 block uppercase tracking-wider">Twelve Data API Key</label>
+          <input 
+            id="twelvedata-key" 
+            name="twelvedata-key" 
+            type="password" 
+            placeholder="Twelve Data key (Optional for live bars)" 
+            class="w-full px-3.5 py-2.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
+          />
+          <p class="text-[11px] text-slate-500">Free plan covers US stocks & ETFs. Get key at <a href="https://twelvedata.com" target="_blank" class="text-indigo-400 hover:underline">twelvedata.com</a>. If omitted, AURA uses high-precision 2026 synthetic market feeds.</p>
+        </div>
+
+        <div class="space-y-1.5">
+          <label for="openrouter-key" class="text-xs font-mono font-semibold text-slate-300 block uppercase tracking-wider">OpenRouter API Key</label>
+          <input 
+            id="openrouter-key" 
+            name="openrouter-key" 
+            type="password" 
+            placeholder="sk-or-v1-..." 
+            class="w-full px-3.5 py-2.5 text-xs bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
+          />
+          <p class="text-[11px] text-slate-500">Unlocks Claude Sonnet 5 / DeepSeek financial reasoning. Saved locally in browser storage.</p>
+        </div>
+
+        <div class="pt-2 flex items-center justify-end gap-3">
+          <button type="button" id="btn-cancel-api-modal" class="px-4 py-2 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-lg shadow-indigo-600/30">Save Credentials</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
