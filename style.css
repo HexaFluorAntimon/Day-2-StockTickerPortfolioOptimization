@@ -706,6 +706,113 @@ body.modal-open {
   border-radius: 999px;
 }
 
+/* ----------------------------------------------------------- portfolio --- */
+
+/* Basket membership chip with a remove affordance */
+.basket-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px 4px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.basket-chip__x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-sunk);
+  color: var(--ink-mute);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.basket-chip__x:hover:not(:disabled) { background: var(--down-soft); color: var(--down); }
+.basket-chip__x:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Stacked weight bar */
+.wbar {
+  display: flex;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.wbar__seg { display: block; height: 100%; }
+.wbar__seg + .wbar__seg { border-left: 1px solid rgba(255, 255, 255, 0.55); }
+
+.wlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.wlist__row {
+  display: grid;
+  grid-template-columns: 9px 1fr auto;
+  align-items: center;
+  gap: 7px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+}
+.wlist__dot { width: 9px; height: 9px; border-radius: 2px; }
+.wlist__sym { color: var(--ink-soft); }
+.wlist__pct { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Winner highlight in the comparison table */
+.cell-win { color: var(--moss); font-weight: 700; }
+.cell-win__mark {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--moss-soft);
+  color: var(--moss-deep);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Correlation heatmap */
+.corr {
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+.corr__corner { width: 54px; }
+.corr__head,
+.corr__row-head {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  padding: 3px 7px;
+  text-align: center;
+  white-space: nowrap;
+}
+.corr__row-head { text-align: right; }
+.corr__cell {
+  min-width: 56px;
+  padding: 8px 7px;
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+  border-radius: 6px;
+}
+.corr__cell.is-self {
+  background: var(--surface-sunk);
+  color: var(--ink-mute);
+}
+
 /* --------------------------------------------------------------- toast --- */
 
 #toast-region {

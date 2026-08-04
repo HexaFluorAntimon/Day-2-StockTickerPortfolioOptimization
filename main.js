@@ -11,6 +11,22 @@ import {
   getLastDataSource
 } from './src/data.js';
 import { searchSp500Companies, SP500_COMPANIES } from './src/sp500.js';
+import {
+  generateBasketSeries,
+  toSimpleReturns,
+  covarianceMatrix,
+  correlationMatrix,
+  equalWeights,
+  inverseVolWeights,
+  minVarianceWeights,
+  maxSharpeWeights,
+  portfolioReturns,
+  portfolioStats,
+  rollingCorrelation,
+  rollingSharpe,
+  rollingBeta,
+  mean as avg
+} from './src/portfolio.js';
 
 /**
  * Opening ticker, in priority order: ?symbol= in the URL, then the last one viewed,
@@ -161,6 +177,26 @@ const el = {
   watchlistWrap: document.getElementById('watchlist-wrap'),
   btnExport: document.getElementById('btn-export'),
 
+  // Portfolio view
+  viewNav: document.getElementById('view-nav'),
+  viewMarkets: document.getElementById('view-markets'),
+  viewPortfolio: document.getElementById('view-portfolio'),
+  basketChips: document.getElementById('basket-chips'),
+  basketAdd: document.getElementById('basket-add'),
+  btnBasketReset: document.getElementById('btn-basket-reset'),
+  rfRate: document.getElementById('rf-rate'),
+  weightCap: document.getElementById('weight-cap'),
+  pfSampleNote: document.getElementById('pf-sample-note'),
+  methodCards: document.getElementById('method-cards'),
+  methodTable: document.getElementById('method-table'),
+  corrMatrix: document.getElementById('corr-matrix'),
+  rollingTabs: document.getElementById('rolling-tabs'),
+  rollingControls: document.getElementById('rolling-controls'),
+  rollingNote: document.getElementById('rolling-note'),
+  rollingCanvas: document.getElementById('rollingChart'),
+  corrA: document.getElementById('corr-a'),
+  corrB: document.getElementById('corr-b'),
+
   // S&P 500 Directory Modal Elements
   btnOpenSp500Modal: document.getElementById('btn-open-sp500-modal'),
   btnCloseSp500Modal: document.getElementById('btn-close-sp500-modal'),
@@ -179,6 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderWatchlist();
   renderWatchButton();
   setupEventListeners();
+  setupPortfolioListeners();
   loadDashboardData(state.ticker);
 });
 
@@ -1390,4 +1427,406 @@ function switchTicker(symbol) {
   window.history.replaceState({}, '', url);
 
   loadDashboardData(state.ticker);
+}
+
+/* ==========================================================================
+   PORTFOLIO VIEW
+   Prices -> simple returns -> covariance -> weights, plus rolling diagnostics.
+   ========================================================================== */
+
+const DEFAULT_BASKET = ['NVDA', 'AAPL', 'MSFT', 'JPM', 'LLY', 'XOM'];
+
+const pf = {
+  basket: loadBasket(),
+  rollingMetric: 'correlation',
+  pairA: null,
+  pairB: null,
+  data: null
+};
+
+let rollingChartInstance = null;
+
+function loadBasket() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('aura_basket') || 'null');
+    if (Array.isArray(raw) && raw.length >= 2) return raw.slice(0, 8);
+  } catch {
+    /* fall through to default */
+  }
+  return [...DEFAULT_BASKET];
+}
+
+function saveBasket() {
+  localStorage.setItem('aura_basket', JSON.stringify(pf.basket));
+}
+
+const rfValue = () => Math.max(0, Number(el.rfRate?.value ?? 3.5)) / 100;
+const capValue = () => Math.min(1, Math.max(0.1, Number(el.weightCap?.value ?? 40) / 100));
+
+const pct = (v, digits = 2) => `${v >= 0 ? '' : '−'}${Math.abs(v * 100).toFixed(digits)}%`;
+
+/** Recompute everything from the current basket and inputs. */
+function computePortfolio() {
+  const symbols = pf.basket;
+  if (symbols.length < 2) return null;
+
+  const gen = generateBasketSeries(symbols, 500);
+  const returns = {};
+  for (const s of symbols) returns[s] = toSimpleReturns(gen.series[s].prices);
+  const marketReturns = toSimpleReturns(gen.market.prices);
+
+  const cov = covarianceMatrix(returns, symbols);
+  const corr = correlationMatrix(returns, symbols);
+  const meanDaily = symbols.map(s => avg(returns[s]));
+
+  const rf = rfValue();
+  const cap = capValue();
+
+  const methods = [
+    { key: 'equal', name: 'Equal weight', goal: 'nothing — a naive benchmark', weights: equalWeights(symbols.length) },
+    { key: 'invvol', name: 'Inverse volatility', goal: 'lower risk, no solver', weights: inverseVolWeights(cov) },
+    { key: 'minvar', name: 'Minimum variance', goal: 'lowest total risk', weights: minVarianceWeights(cov, cap) },
+    { key: 'sharpe', name: 'Maximum Sharpe', goal: 'best return per unit of risk', weights: maxSharpeWeights(cov, meanDaily, rf, cap) }
+  ];
+
+  for (const m of methods) {
+    m.daily = portfolioReturns(returns, symbols, m.weights);
+    m.stats = portfolioStats(m.daily, rf);
+  }
+
+  return { symbols, gen, returns, marketReturns, cov, corr, methods, rf, sessions: returns[symbols[0]].length };
+}
+
+function renderPortfolio() {
+  if (!el.viewPortfolio) return;
+  if (pf.basket.length < 2) {
+    el.methodCards.innerHTML = '<p class="text-[13px] text-ink-mute">Add at least two companies to the basket.</p>';
+    el.methodTable.innerHTML = '';
+    el.corrMatrix.innerHTML = '';
+    renderBasketChips();
+    return;
+  }
+
+  pf.data = computePortfolio();
+  const d = pf.data;
+
+  if (el.pfSampleNote) el.pfSampleNote.textContent = `${d.sessions} sessions · ${d.symbols.length} names`;
+
+  renderBasketChips();
+  renderMethodCards(d);
+  renderMethodTable(d);
+  renderCorrMatrix(d);
+  syncPairSelects(d);
+  renderRollingChart(d);
+}
+
+function renderBasketChips() {
+  if (!el.basketChips) return;
+  el.basketChips.innerHTML = pf.basket
+    .map(
+      sym => `<span class="basket-chip">
+        <span class="chip__sym">${escapeHtml(sym)}</span>
+        <button type="button" class="basket-chip__x" data-remove="${escapeHtml(sym)}"
+          aria-label="Remove ${escapeHtml(sym)} from basket" ${pf.basket.length <= 2 ? 'disabled' : ''}>×</button>
+      </span>`
+    )
+    .join('');
+
+  // Keep the picker in sync with what is already held
+  if (el.basketAdd) {
+    const options = SP500_COMPANIES.filter(c => !pf.basket.includes(c.symbol))
+      .map(c => `<option value="${escapeHtml(c.symbol)}">${escapeHtml(c.symbol)} — ${escapeHtml(c.name)}</option>`)
+      .join('');
+    el.basketAdd.innerHTML = `<option value="">Add a company…</option>${options}`;
+    el.basketAdd.disabled = pf.basket.length >= 8;
+  }
+}
+
+function renderMethodCards(d) {
+  const palette = ['#24693b', '#4c9f5e', '#8cc096', '#d08b1f', '#b3542f', '#2f6f86', '#8b9477', '#14352a'];
+  el.methodCards.innerHTML = d.methods
+    .map(m => {
+      const bars = d.symbols
+        .map((s, i) => {
+          const w = m.weights[i];
+          if (w < 0.001) return '';
+          return `<span class="wbar__seg" style="width:${(w * 100).toFixed(2)}%;background:${palette[i % palette.length]}" title="${escapeHtml(s)} ${(w * 100).toFixed(1)}%"></span>`;
+        })
+        .join('');
+      const rows = d.symbols
+        .map((s, i) => ({ s, w: m.weights[i], c: palette[i % palette.length] }))
+        .filter(x => x.w >= 0.001)
+        .sort((a, b) => b.w - a.w)
+        .map(
+          x => `<li class="wlist__row">
+            <span class="wlist__dot" style="background:${x.c}"></span>
+            <span class="wlist__sym">${escapeHtml(x.s)}</span>
+            <span class="wlist__pct">${(x.w * 100).toFixed(1)}%</span>
+          </li>`
+        )
+        .join('');
+      return `<article class="card--quiet rounded-xl2 p-4 flex flex-col gap-3">
+        <div>
+          <h3 class="text-[13px] font-bold text-ink">${escapeHtml(m.name)}</h3>
+          <p class="text-[11px] text-ink-mute leading-snug">${escapeHtml(m.goal)}</p>
+        </div>
+        <div class="wbar" role="img" aria-label="Weight allocation for ${escapeHtml(m.name)}">${bars}</div>
+        <ul class="wlist">${rows}</ul>
+      </article>`;
+    })
+    .join('');
+}
+
+function renderMethodTable(d) {
+  const bestVol = Math.min(...d.methods.map(m => m.stats.annVol));
+  const bestSharpe = Math.max(...d.methods.map(m => m.stats.sharpe));
+
+  el.methodTable.innerHTML = d.methods
+    .map(m => {
+      const volWin = Math.abs(m.stats.annVol - bestVol) < 1e-9;
+      const shWin = Math.abs(m.stats.sharpe - bestSharpe) < 1e-9;
+      return `<tr class="border-b border-line last:border-0">
+        <td class="py-2.5 pr-3 text-[13px] font-semibold text-ink">${escapeHtml(m.name)}</td>
+        <td class="py-2.5 px-3 text-[12px] text-ink-mute">${escapeHtml(m.goal)}</td>
+        <td class="py-2.5 px-3 text-right num text-[12.5px] ${m.stats.annReturn >= 0 ? 'is-up' : 'is-down'}">${pct(m.stats.annReturn)}</td>
+        <td class="py-2.5 px-3 text-right num text-[12.5px] ${volWin ? 'cell-win' : 'text-ink'}">${pct(m.stats.annVol)}${volWin ? ' <span class="cell-win__mark">best</span>' : ''}</td>
+        <td class="py-2.5 pl-3 text-right num text-[12.5px] ${shWin ? 'cell-win' : 'text-ink'}">${m.stats.sharpe.toFixed(2)}${shWin ? ' <span class="cell-win__mark">best</span>' : ''}</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+function renderCorrMatrix(d) {
+  const { symbols, corr } = d;
+  // Diverging scale pivoted at 0.45 — a typical large-cap equity correlation.
+  // Below that a pair is genuinely diversifying (green); well above it the pair
+  // is moving together (clay). A flat green/red split at zero would paint every
+  // ordinary 0.5 correlation as alarming.
+  const GREEN = [47, 125, 79];
+  const NEUTRAL = [238, 240, 228];
+  const CLAY = [176, 84, 47];
+  const lerp = (a, b, t) => a.map((x, i) => Math.round(x + (b[i] - x) * t));
+  const cellColor = (v) => {
+    const c = v <= 0.45
+      ? lerp(GREEN, NEUTRAL, Math.max(0, Math.min(1, (v + 1) / 1.45)))
+      : lerp(NEUTRAL, CLAY, Math.max(0, Math.min(1, (v - 0.45) / 0.55)));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  };
+
+  const head = `<tr><th class="corr__corner"></th>${symbols
+    .map(s => `<th scope="col" class="corr__head">${escapeHtml(s)}</th>`)
+    .join('')}</tr>`;
+
+  const body = symbols
+    .map(
+      (si, i) => `<tr>
+        <th scope="row" class="corr__row-head">${escapeHtml(si)}</th>
+        ${symbols
+          .map((sj, j) => {
+            const v = corr[i][j];
+            const self = i === j;
+            return `<td class="corr__cell${self ? ' is-self' : ''}" style="${self ? '' : `background:${cellColor(v)}`}"
+              title="${escapeHtml(si)} vs ${escapeHtml(sj)}: ${v.toFixed(2)}">${v.toFixed(2)}</td>`;
+          })
+          .join('')}
+      </tr>`
+    )
+    .join('');
+
+  const offDiag = [];
+  corr.forEach((row, i) => row.forEach((v, j) => { if (i < j) offDiag.push(v); }));
+  const meanCorr = offDiag.length ? avg(offDiag) : 0;
+
+  el.corrMatrix.innerHTML = `<table class="corr"><caption class="sr-only">Correlation of daily returns between basket members</caption>${head}${body}</table>
+    <p class="text-[11.5px] text-ink-mute mt-3">
+      Average pairwise correlation <strong class="font-mono text-ink">${meanCorr.toFixed(2)}</strong>.
+      Lower is better for diversification.
+    </p>`;
+}
+
+function syncPairSelects(d) {
+  if (!el.corrA || !el.corrB) return;
+  if (!d.symbols.includes(pf.pairA)) pf.pairA = d.symbols[0];
+  if (!d.symbols.includes(pf.pairB) || pf.pairB === pf.pairA) {
+    pf.pairB = d.symbols.find(s => s !== pf.pairA) || d.symbols[0];
+  }
+  const opts = (sel) =>
+    d.symbols.map(s => `<option value="${escapeHtml(s)}"${s === sel ? ' selected' : ''}>${escapeHtml(s)}</option>`).join('');
+  el.corrA.innerHTML = opts(pf.pairA);
+  el.corrB.innerHTML = opts(pf.pairB);
+}
+
+function renderRollingChart(d) {
+  if (!el.rollingCanvas) return;
+  const labels = d.gen.dates.slice(1).map(x => x.slice(2, 7));
+  const C = { w30: '#d08b1f', w90: '#24693b', zero: 'rgba(20,53,42,0.25)', grid: 'rgba(20,53,42,0.07)', tick: '#516652' };
+
+  let datasets = [];
+  let note = '';
+  let suggested = {};
+
+  if (pf.rollingMetric === 'correlation') {
+    const a = d.returns[pf.pairA];
+    const b = d.returns[pf.pairB];
+    datasets = [
+      { label: '30-day', data: rollingCorrelation(a, b, 30), borderColor: C.w30, borderWidth: 1.4, pointRadius: 0, tension: 0.15, spanGaps: false },
+      { label: '90-day', data: rollingCorrelation(a, b, 90), borderColor: C.w90, borderWidth: 2.4, pointRadius: 0, tension: 0.15, spanGaps: false }
+    ];
+    note = `Rolling correlation of ${pf.pairA} against ${pf.pairB}. The 30-day window is reactive and noisy; the 90-day window is smooth and slow. Watch both climb in the stressed second half — correlations drift toward 1 exactly when diversification is needed most, which a single averaged number never reveals.`;
+    suggested = { min: -1, max: 1 };
+  } else if (pf.rollingMetric === 'sharpe') {
+    const eq = d.methods.find(m => m.key === 'equal');
+    const mv = d.methods.find(m => m.key === 'minvar');
+    datasets = [
+      { label: 'Equal weight', data: rollingSharpe(eq.daily, d.rf, 90), borderColor: C.w30, borderWidth: 1.6, pointRadius: 0, tension: 0.15 },
+      { label: 'Minimum variance', data: rollingSharpe(mv.daily, d.rf, 90), borderColor: C.w90, borderWidth: 2.4, pointRadius: 0, tension: 0.15 }
+    ];
+    note = 'Rolling 90-day Sharpe, annualised by √252. A reading near or below zero means the portfolio was not being paid for the risk it carried.';
+  } else {
+    const eq = d.methods.find(m => m.key === 'equal');
+    const mv = d.methods.find(m => m.key === 'minvar');
+    datasets = [
+      { label: 'Equal weight', data: rollingBeta(eq.daily, d.marketReturns, 90), borderColor: C.w30, borderWidth: 1.6, pointRadius: 0, tension: 0.15 },
+      { label: 'Minimum variance', data: rollingBeta(mv.daily, d.marketReturns, 90), borderColor: C.w90, borderWidth: 2.4, pointRadius: 0, tension: 0.15 }
+    ];
+    note = 'Rolling 90-day beta against SPY. 1.0 moves with the market, above is more volatile, below is calmer. Beta drifting while your holdings sit still means your risk profile is changing underneath you.';
+  }
+
+  if (el.rollingNote) el.rollingNote.textContent = note;
+  if (el.rollingControls) el.rollingControls.classList.toggle('hidden', pf.rollingMetric !== 'correlation');
+  if (el.rollingControls && pf.rollingMetric === 'correlation') el.rollingControls.classList.add('flex');
+
+  if (rollingChartInstance) rollingChartInstance.destroy();
+  rollingChartInstance = new Chart(el.rollingCanvas.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'end',
+          labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: 'rectRounded',
+                    color: '#46574c', font: { family: 'Archivo', size: 11 } }
+        },
+        tooltip: {
+          backgroundColor: '#14352a', titleFont: { family: 'JetBrains Mono', size: 11 },
+          bodyFont: { family: 'JetBrains Mono', size: 11 }, padding: 9, displayColors: true,
+          callbacks: { label: (c) => ` ${c.dataset.label}: ${c.parsed.y === null ? '—' : c.parsed.y.toFixed(2)}` }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: C.grid, drawTicks: false },
+          border: { display: false },
+          ticks: { color: C.tick, font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 10, padding: 6 }
+        },
+        y: {
+          position: 'right',
+          ...suggested,
+          grid: { color: C.grid, drawTicks: false },
+          border: { display: false },
+          ticks: { color: C.tick, font: { family: 'JetBrains Mono', size: 11 }, padding: 8,
+                   callback: (v) => Number(v).toFixed(1) }
+        }
+      }
+    }
+  });
+}
+
+/* ------------------------------------------------------------ view routing --- */
+
+function currentView() {
+  return window.location.hash.replace('#', '') === 'portfolio' ? 'portfolio' : 'markets';
+}
+
+function setView(view, { push = true } = {}) {
+  const target = view === 'portfolio' ? 'portfolio' : 'markets';
+  el.viewMarkets?.classList.toggle('hidden', target !== 'markets');
+  el.viewPortfolio?.classList.toggle('hidden', target !== 'portfolio');
+
+  el.viewNav?.querySelectorAll('button').forEach(b => {
+    const active = b.getAttribute('data-view') === target;
+    b.className = active ? 'seg-btn is-active' : 'seg-btn';
+    b.setAttribute('aria-current', active ? 'page' : 'false');
+  });
+
+  if (push) {
+    const hash = target === 'portfolio' ? '#portfolio' : '';
+    if ((window.location.hash || '') !== hash) {
+      history.replaceState({}, '', `${window.location.pathname}${window.location.search}${hash}`);
+    }
+  }
+
+  if (target === 'portfolio' && !pf.data) renderPortfolio();
+  // Chart.js needs a resize once its container stops being display:none
+  if (target === 'portfolio' && rollingChartInstance) rollingChartInstance.resize();
+  if (target === 'markets' && priceChartInstance) priceChartInstance.resize();
+}
+
+function setupPortfolioListeners() {
+  if (!el.viewPortfolio) return;
+
+  el.viewNav?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-view]');
+    if (btn) setView(btn.getAttribute('data-view'));
+  });
+
+  window.addEventListener('hashchange', () => setView(currentView(), { push: false }));
+
+  el.basketChips?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-remove]');
+    if (!btn || pf.basket.length <= 2) return;
+    pf.basket = pf.basket.filter(s => s !== btn.getAttribute('data-remove'));
+    saveBasket();
+    renderPortfolio();
+  });
+
+  el.basketAdd?.addEventListener('change', () => {
+    const sym = el.basketAdd.value;
+    if (!sym) return;
+    if (pf.basket.length >= 8) {
+      showToast('Basket is capped at 8 names', 'error');
+    } else if (!pf.basket.includes(sym)) {
+      pf.basket.push(sym);
+      saveBasket();
+      renderPortfolio();
+    }
+    el.basketAdd.value = '';
+  });
+
+  el.btnBasketReset?.addEventListener('click', () => {
+    pf.basket = [...DEFAULT_BASKET];
+    saveBasket();
+    renderPortfolio();
+    showToast('Basket reset');
+  });
+
+  let debounce = null;
+  const reRender = () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(renderPortfolio, 220);
+  };
+  el.rfRate?.addEventListener('input', reRender);
+  el.weightCap?.addEventListener('input', reRender);
+
+  el.rollingTabs?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-roll]');
+    if (!btn) return;
+    pf.rollingMetric = btn.getAttribute('data-roll');
+    el.rollingTabs.querySelectorAll('button').forEach(b => {
+      const active = b === btn;
+      b.className = active ? 'seg-btn is-active' : 'seg-btn';
+      b.setAttribute('aria-pressed', String(active));
+    });
+    if (pf.data) renderRollingChart(pf.data);
+  });
+
+  el.corrA?.addEventListener('change', () => { pf.pairA = el.corrA.value; if (pf.data) renderRollingChart(pf.data); });
+  el.corrB?.addEventListener('change', () => { pf.pairB = el.corrB.value; if (pf.data) renderRollingChart(pf.data); });
+
+  setView(currentView(), { push: false });
 }

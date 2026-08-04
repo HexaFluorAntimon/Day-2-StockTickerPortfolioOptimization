@@ -52,9 +52,9 @@
   </div>
 
   <!-- HEADER -->
-  <header class="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm border-b border-line px-4 lg:px-8 py-3 flex items-center justify-between gap-4">
+  <header class="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm border-b border-line px-3 sm:px-4 lg:px-8 py-3 flex items-center justify-between gap-2 sm:gap-4">
     <!-- Wordmark: cut-paper disc, square and blade -->
-    <a href="#main" class="flex items-center gap-2.5 shrink-0 no-underline">
+    <a href="#main" class="flex items-center gap-2 sm:gap-2.5 shrink-0 no-underline">
       <svg viewBox="0 0 40 40" class="w-9 h-9" aria-hidden="true">
         <rect x="16" y="16" width="20" height="20" rx="1" fill="#b7cdb8" />
         <circle cx="17" cy="18" r="15" fill="#2f7d4f" />
@@ -63,12 +63,18 @@
       </svg>
       <span class="flex items-baseline gap-1.5">
         <span class="text-[22px] font-extrabold tracking-[-0.03em] text-pine">Aura</span>
-        <span class="text-[13px] font-medium text-ink-mute">by JLMG</span>
+        <span class="hidden sm:inline text-[13px] font-medium text-ink-mute">by JLMG</span>
       </span>
     </a>
 
+    <!-- View switcher -->
+    <nav id="view-nav" class="seg shrink-0" aria-label="Section">
+      <button type="button" data-view="markets" class="seg-btn is-active">Markets</button>
+      <button type="button" data-view="portfolio" class="seg-btn">Portfolio</button>
+    </nav>
+
     <!-- Search -->
-    <div class="hidden md:flex items-center max-w-lg w-full">
+    <div class="hidden lg:flex items-center max-w-md w-full">
       <div class="relative w-full">
         <label for="ticker-search" class="sr-only">Search S&amp;P 500 companies</label>
         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-ink-mute">
@@ -131,7 +137,10 @@
   </div>
 
   <!-- MAIN -->
-  <main id="main" class="flex-1 w-full max-w-[1400px] mx-auto px-4 lg:px-8 py-6 space-y-6">
+  <main id="main" class="flex-1 w-full max-w-[1400px] mx-auto px-4 lg:px-8 py-6">
+
+  <!-- ============================ VIEW: MARKETS ============================ -->
+  <div id="view-markets" class="space-y-6">
 
     <!-- HERO — the one deliberate "plate" moment on the page -->
     <section id="hero-card" class="relative rounded-xl2 bg-paper-mint border border-moss/15 overflow-hidden">
@@ -512,6 +521,208 @@
       </div>
       <div id="news-container" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
     </section>
+
+  </div><!-- /view-markets -->
+
+  <!-- =========================== VIEW: PORTFOLIO =========================== -->
+  <div id="view-portfolio" class="hidden space-y-6">
+
+    <!-- BASKET -->
+    <section class="relative rounded-xl2 bg-paper-mint border border-moss/15 overflow-hidden">
+      <svg class="absolute right-0 top-0 h-full w-[560px] pointer-events-none hidden lg:block" viewBox="0 0 560 260" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+        <!-- concentric annuli: the covariance matrix as a compass -->
+        <circle cx="250" cy="130" r="106" fill="#bcd4bd" />
+        <circle cx="250" cy="130" r="106" fill="none" stroke="#14352a" stroke-width="1" opacity="0.18" />
+        <circle cx="250" cy="130" r="70" fill="#e6efe2" />
+        <circle cx="250" cy="130" r="70" fill="none" stroke="#14352a" stroke-width="1" opacity="0.14" />
+        <circle cx="250" cy="130" r="30" fill="#2f7d4f" opacity="0.85" />
+        <!-- ochre as a ruled arc band concentric with the annuli, not a filled mass -->
+        <path d="M 250 42 A 88 88 0 0 0 162 130" fill="none" stroke="#d08b1f" stroke-width="10" stroke-linecap="butt" />
+        <circle cx="176" cy="56" r="13" fill="#f7f5ec" />
+        <path d="M 560 0 L 560 92 A 92 92 0 0 0 468 0 Z" fill="#14352a" opacity="0.9" />
+      </svg>
+
+      <div class="relative z-10 p-6 lg:p-7 space-y-4">
+        <div class="space-y-1.5">
+          <span class="eyebrow">Portfolio optimisation</span>
+          <div class="rule-ticked max-w-[180px]"></div>
+        </div>
+        <h1 class="text-[30px] leading-tight font-extrabold tracking-[-0.03em] text-pine max-w-xl">
+          From prices to weights
+        </h1>
+        <p class="text-[13px] leading-relaxed text-ink-soft max-w-xl">
+          Daily simple returns feed a covariance matrix; the covariance matrix feeds four
+          weighting methods. Every number below is computed in the browser from the basket
+          you choose.
+        </p>
+
+        <div class="pt-1 space-y-2.5">
+          <span class="eyebrow">Basket</span>
+          <div id="basket-chips" class="flex flex-wrap items-center gap-1.5"></div>
+          <div class="flex flex-wrap items-center gap-2 pt-1">
+            <label for="basket-add" class="sr-only">Add a company to the basket</label>
+            <select id="basket-add" class="bg-white border border-line hover:border-moss rounded-full px-3 py-1.5 text-[12.5px] font-medium text-ink focus:outline-none focus:ring-2 focus:ring-moss/20 transition cursor-pointer max-w-[280px]">
+              <option value="">Add a company…</option>
+            </select>
+            <button id="btn-basket-reset" type="button" class="chip">Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTROLS -->
+    <section class="card p-5 lg:p-6">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div class="space-y-1.5">
+          <label for="rf-rate" class="block text-[11px] font-mono uppercase tracking-wider text-ink-mute">
+            Risk-free rate
+          </label>
+          <div class="flex items-center gap-2">
+            <input id="rf-rate" type="number" min="0" max="15" step="0.1" value="3.5"
+              class="w-24 px-3 py-1.5 text-[13px] font-mono bg-paper-sunk border border-line rounded-lg text-ink focus:outline-none focus:border-moss focus:ring-2 focus:ring-moss/20 transition" />
+            <span class="text-[13px] font-mono text-ink-mute">%</span>
+          </div>
+          <p class="text-[11px] text-ink-mute leading-snug">
+            Course value 3.5%. Real proxy: 3-month T-bill (FRED <span class="font-mono">DTB3</span>).
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <label for="weight-cap" class="block text-[11px] font-mono uppercase tracking-wider text-ink-mute">
+            Max position
+          </label>
+          <div class="flex items-center gap-2">
+            <input id="weight-cap" type="number" min="10" max="100" step="5" value="40"
+              class="w-24 px-3 py-1.5 text-[13px] font-mono bg-paper-sunk border border-line rounded-lg text-ink focus:outline-none focus:border-moss focus:ring-2 focus:ring-moss/20 transition" />
+            <span class="text-[13px] font-mono text-ink-mute">%</span>
+          </div>
+          <p class="text-[11px] text-ink-mute leading-snug">
+            Caps any single holding. Without it, max Sharpe collapses onto one lucky name.
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <span class="block text-[11px] font-mono uppercase tracking-wider text-ink-mute">Sample</span>
+          <p id="pf-sample-note" class="text-[13px] font-mono font-semibold text-ink">—</p>
+          <p class="text-[11px] text-ink-mute leading-snug">
+            Single-factor model series, seeded per symbol so results are reproducible.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- METHOD COMPARISON -->
+    <section class="card p-5 lg:p-6 space-y-5">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2.5">
+          <span class="w-3 h-3 rounded-sm bg-moss shrink-0" aria-hidden="true"></span>
+          <h2 class="text-[15px] font-bold tracking-[-0.01em] text-ink">The methods compared</h2>
+        </div>
+        <span class="text-[11px] font-mono text-ink-mute">Annualised · 252 sessions</span>
+      </div>
+
+      <div id="method-cards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"></div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse min-w-[560px]">
+          <caption class="sr-only">Annualised return, volatility and Sharpe ratio by weighting method</caption>
+          <thead>
+            <tr class="text-[10px] font-mono uppercase tracking-wider text-ink-mute border-b border-line">
+              <th scope="col" class="py-2.5 pr-3 font-semibold">Method</th>
+              <th scope="col" class="py-2.5 px-3 font-semibold">Optimises for</th>
+              <th scope="col" class="py-2.5 px-3 font-semibold text-right">Ann. return</th>
+              <th scope="col" class="py-2.5 px-3 font-semibold text-right">Ann. volatility</th>
+              <th scope="col" class="py-2.5 pl-3 font-semibold text-right">Sharpe</th>
+            </tr>
+          </thead>
+          <tbody id="method-table"></tbody>
+        </table>
+      </div>
+
+      <p class="text-[12px] leading-relaxed text-ink-soft border-t border-line pt-3">
+        <strong class="font-semibold text-ink">How to read this.</strong>
+        Minimum variance should win the volatility column; maximum Sharpe should win the Sharpe
+        column; equal weight usually lands in the middle of both. If either optimiser loses its
+        own column, something upstream is wrong — and noticing that matters more than the table.
+      </p>
+    </section>
+
+    <!-- COVARIANCE / CORRELATION -->
+    <section class="card p-5 lg:p-6 space-y-4">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2.5">
+          <span class="w-3 h-3 rounded-full bg-ochre shrink-0" aria-hidden="true"></span>
+          <h2 class="text-[15px] font-bold tracking-[-0.01em] text-ink">Correlation matrix</h2>
+        </div>
+        <span class="text-[11px] font-mono text-ink-mute">Daily simple returns</span>
+      </div>
+      <p class="text-[12px] leading-relaxed text-ink-soft max-w-3xl">
+        The covariance matrix captures how volatile each name is <em>and</em> how the names move
+        together. Two stocks that move apart cut portfolio risk more than either does alone —
+        that is the whole engine of diversification. Shown here scaled to −1…1.
+      </p>
+      <div id="corr-matrix" class="overflow-x-auto"></div>
+    </section>
+
+    <!-- ROLLING DIAGNOSTICS -->
+    <section class="card p-5 lg:p-6 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <span class="w-3 h-3 bg-clay shrink-0" style="clip-path:polygon(0 0,100% 0,0 100%)" aria-hidden="true"></span>
+          <h2 class="text-[15px] font-bold tracking-[-0.01em] text-ink">Rolling diagnostics</h2>
+        </div>
+        <div id="rolling-tabs" class="seg" role="group" aria-label="Rolling metric">
+          <button data-roll="correlation" class="seg-btn is-active">Correlation</button>
+          <button data-roll="sharpe" class="seg-btn">Sharpe</button>
+          <button data-roll="beta" class="seg-btn">Beta</button>
+        </div>
+      </div>
+
+      <div id="rolling-controls" class="hidden flex-wrap items-center gap-2">
+        <label for="corr-a" class="text-[11px] font-mono uppercase tracking-wider text-ink-mute">Pair</label>
+        <select id="corr-a" class="bg-paper-sunk border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] font-mono text-ink focus:outline-none focus:ring-2 focus:ring-moss/20 cursor-pointer"></select>
+        <span class="text-ink-mute text-[12px]">vs</span>
+        <select id="corr-b" class="bg-paper-sunk border border-line rounded-lg px-2.5 py-1.5 text-[12.5px] font-mono text-ink focus:outline-none focus:ring-2 focus:ring-moss/20 cursor-pointer"></select>
+      </div>
+
+      <p id="rolling-note" class="text-[12px] leading-relaxed text-ink-soft max-w-3xl"></p>
+
+      <div class="relative w-full h-[320px]">
+        <canvas id="rollingChart" role="img" aria-label="Rolling diagnostics chart"></canvas>
+      </div>
+
+      <p class="text-[11px] text-ink-mute border-t border-line pt-3">
+        Every rolling metric starts late — it needs a full window before its first value.
+      </p>
+    </section>
+
+    <!-- METHOD REFERENCE -->
+    <section class="card card--tint p-5 lg:p-6 space-y-4">
+      <div class="flex items-center gap-2.5">
+        <span class="w-3 h-3 bg-pine shrink-0" style="clip-path:polygon(50% 0,100% 100%,0 100%)" aria-hidden="true"></span>
+        <h2 class="text-[15px] font-bold tracking-[-0.01em] text-ink">What the browser can and cannot do</h2>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-lg p-4 border border-line space-y-2">
+          <span class="eyebrow">In R (the course scripts)</span>
+          <ul class="text-[12px] leading-relaxed text-ink-soft space-y-1.5 list-none p-0 m-0">
+            <li class="driver"><span class="font-mono">quadprog::solve.QP()</span> solves minimum variance exactly.</li>
+            <li class="driver"><span class="font-mono">PortfolioAnalytics::optimize.portfolio()</span> wraps maximum Sharpe.</li>
+            <li class="driver"><span class="font-mono">TTR::runCor()</span>, <span class="font-mono">runSD()</span>, <span class="font-mono">zoo::rollapply()</span> drive the rolling views.</li>
+          </ul>
+        </div>
+        <div class="bg-white rounded-lg p-4 border border-line space-y-2">
+          <span class="eyebrow">Here in the browser</span>
+          <ul class="text-[12px] leading-relaxed text-ink-soft space-y-1.5 list-none p-0 m-0">
+            <li class="driver">Inverse volatility needs no solver — the handout's stand-in. It ignores correlation.</li>
+            <li class="driver">Minimum variance and maximum Sharpe are solved by projected gradient descent onto the simplex, which is fast enough for a handful of assets.</li>
+            <li class="driver">A weighting is never shipped from an optimiser straight to a trading system. That missing human step is what ended Knight Capital in 45 minutes.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /view-portfolio -->
 
   </main>
 
