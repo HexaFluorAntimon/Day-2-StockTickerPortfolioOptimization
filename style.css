@@ -1,13 +1,19 @@
-/* 2026 SaaS Dark Theme Custom Utility Enhancements & Styles */
+/* Aura — Bauhaus x Matisse: cut-paper geometry, greens + ochre accent */
 
 :root {
   color-scheme: dark;
+  --bh-line: rgba(216, 230, 211, 0.35);
+  --bh-tick: rgba(216, 230, 211, 0.18);
 }
 
 body {
-  background-color: #090d16;
-  color: #f8fafc;
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background-color: #081a13;
+  background-image:
+    radial-gradient(ellipse 900px 500px at 100% -10%, rgba(47, 128, 73, 0.12), transparent 60%),
+    radial-gradient(ellipse 700px 500px at -10% 110%, rgba(228, 162, 56, 0.06), transparent 55%);
+  background-attachment: fixed;
+  color: #eef2e4;
+  font-family: 'Archivo', system-ui, -apple-system, sans-serif;
 }
 
 /* Custom Scrollbar */
@@ -17,16 +23,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #081a13;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
-  border-radius: 9999px;
+  background: #234433;
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #3c5c48;
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -57,16 +63,54 @@ body {
   animation-play-state: paused;
 }
 
-/* Glassmorphism & Micro Borders */
-.glass-panel {
-  background: rgba(17, 24, 39, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Flat cut-paper card: opaque field, hairline border, no glassmorphism blur */
+.bh-card {
+  background-color: #0f241b;
+  border: 1px solid #1a3327;
 }
 
-.glass-panel:hover {
-  border-color: rgba(99, 102, 241, 0.3);
+.bh-card:hover {
+  border-color: #234433;
+}
+
+/* Corner registration marks, lifted from the poster series' plate crops */
+.bh-frame {
+  position: relative;
+}
+
+.bh-frame::before,
+.bh-frame::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.bh-frame::before {
+  top: 10px;
+  left: 10px;
+  border-top: 1.5px solid var(--bh-line);
+  border-left: 1.5px solid var(--bh-line);
+}
+
+.bh-frame::after {
+  top: 10px;
+  right: 10px;
+  border-top: 1.5px solid var(--bh-line);
+  border-right: 1.5px solid var(--bh-line);
+}
+
+/* Ruled hairline with ticks, under plate-style eyebrow labels */
+.bh-ruler {
+  height: 5px;
+  background-image:
+    linear-gradient(var(--bh-line), var(--bh-line)),
+    repeating-linear-gradient(to right, var(--bh-tick) 0 1px, transparent 1px 12px);
+  background-size: 100% 1px, 100% 5px;
+  background-position: top, top;
+  background-repeat: no-repeat, repeat-x;
 }
 
 /* Custom Tabular Numbers for Prices */

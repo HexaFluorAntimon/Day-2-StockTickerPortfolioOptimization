@@ -181,16 +181,16 @@ function updateApiStatusBadge() {
 
   if (hasNewsApi) {
     el.apiStatusLabel.textContent = 'NewsAPI Live Stream Active';
-    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-cyan-400';
-    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75';
+    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-mint-400';
+    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-mint-400 opacity-75';
   } else if (hasTwelve && hasRouter) {
     el.apiStatusLabel.textContent = 'Live API Active';
     el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
     el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
   } else if (hasTwelve || hasRouter) {
     el.apiStatusLabel.textContent = 'Partial Key Active';
-    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-indigo-500';
-    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75';
+    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-moss-500';
+    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-moss-400 opacity-75';
   } else {
     el.apiStatusLabel.textContent = 'Verified S&P 500 Data Active';
     el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
@@ -216,32 +216,32 @@ function renderTickerTape() {
   const list = [...tapeItems, ...tapeItems];
   
   el.tickerTape.innerHTML = list.map(item => `
-    <div class="flex items-center gap-2 cursor-pointer hover:text-indigo-400 transition" onclick="window.handleTickerSelect('${item.symbol.split(' ')[0]}')">
-      <span class="font-bold text-slate-300">${item.symbol}:</span>
-      <span class="text-slate-100 font-semibold">${item.price}</span>
-      <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${item.up ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+    <div class="flex items-center gap-2 cursor-pointer hover:text-moss-400 transition" onclick="window.handleTickerSelect('${item.symbol.split(' ')[0]}')">
+      <span class="font-bold text-paper-300">${item.symbol}:</span>
+      <span class="text-paper-100 font-semibold">${item.price}</span>
+      <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${item.up ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-clay-500/10 text-clay-400 border border-clay-500/20'}">
         ${item.change}
       </span>
     </div>
-  `).join('<span class="text-slate-700">•</span>');
+  `).join('<span class="text-paper-700">•</span>');
 }
 
 // QUICK TICKER SELECTION PILLS
 function renderQuickTickerPills() {
   el.quickTickerPills.innerHTML = POPULAR_TICKERS.map(t => {
     const isActive = t.symbol === state.ticker;
-    const colorClass = t.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400';
+    const colorClass = t.changePct >= 0 ? 'text-emerald-400' : 'text-clay-400';
     return `
       <button 
         data-symbol="${t.symbol}"
         class="px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition flex items-center gap-1.5 ${
           isActive 
-            ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' 
-            : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white'
+            ? 'bg-moss-600 text-paper-50 border-moss-500 shadow-md shadow-moss-600/30' 
+            : 'bg-paper-900 border-paper-800 text-paper-300 hover:border-paper-700 hover:text-paper-50'
         }"
       >
         <span>${t.symbol}</span>
-        <span class="${isActive ? 'text-indigo-200' : colorClass} text-[10px]">${t.changePct >= 0 ? '+' : ''}${t.changePct}%</span>
+        <span class="${isActive ? 'text-moss-200' : colorClass} text-[10px]">${t.changePct >= 0 ? '+' : ''}${t.changePct}%</span>
       </button>
     `;
   }).join('');
@@ -314,7 +314,7 @@ function renderHeroBanner() {
   el.heroChangeContainer.className = `flex items-center gap-2 px-3 py-1 rounded-xl font-mono font-bold text-lg ${
     isUp 
       ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
-      : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'
+      : 'bg-clay-500/10 border border-clay-500/20 text-clay-400'
   }`;
   el.heroChangeIcon.textContent = isUp ? '▲' : '▼';
   el.heroChangeDollar.textContent = `${isUp ? '+' : ''}$${m.dayChange.toFixed(2)}`;
@@ -378,14 +378,14 @@ function renderChart() {
   const isUpTrend = closes[closes.length - 1] >= closes[0];
   const gradient = ctx.createLinearGradient(0, 0, 0, 320);
   if (isUpTrend) {
-    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
+    gradient.addColorStop(0, 'rgba(47, 128, 73, 0.35)');
     gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
   } else {
-    gradient.addColorStop(0, 'rgba(244, 63, 94, 0.35)');
+    gradient.addColorStop(0, 'rgba(178, 87, 56, 0.35)');
     gradient.addColorStop(1, 'rgba(244, 63, 94, 0.0)');
   }
 
-  const primaryColor = isUpTrend ? '#818cf8' : '#f43f5e';
+  const primaryColor = isUpTrend ? '#4c9f5e' : '#b25738';
 
   // Build datasets
   const datasets = [];
@@ -411,7 +411,7 @@ function renderChart() {
       data: filteredBars.map(b => [b.low, b.high]),
       type: 'bar',
       barThickness: 2,
-      backgroundColor: filteredBars.map(b => (b.close >= b.open ? '#10b981' : '#f43f5e')),
+      backgroundColor: filteredBars.map(b => (b.close >= b.open ? '#1f8054' : '#b25738')),
       yAxisID: 'y'
     });
 
@@ -421,7 +421,7 @@ function renderChart() {
       data: filteredBars.map(b => [Math.min(b.open, b.close), Math.max(b.open, b.close)]),
       type: 'bar',
       barThickness: Math.max(3, Math.min(10, 300 / filteredBars.length)),
-      backgroundColor: filteredBars.map(b => (b.close >= b.open ? '#10b981' : '#f43f5e')),
+      backgroundColor: filteredBars.map(b => (b.close >= b.open ? '#1f8054' : '#b25738')),
       yAxisID: 'y'
     });
   }
@@ -430,7 +430,7 @@ function renderChart() {
     datasets.push({
       label: '50 SMA',
       data: sma50Values,
-      borderColor: '#6366f1',
+      borderColor: '#2f8049',
       borderWidth: 1.5,
       borderDash: [4, 4],
       fill: false,
@@ -444,7 +444,7 @@ function renderChart() {
     datasets.push({
       label: '200 SMA',
       data: sma200Values,
-      borderColor: '#f59e0b',
+      borderColor: '#e4a238',
       borderWidth: 1.5,
       borderDash: [2, 2],
       fill: false,
@@ -458,7 +458,7 @@ function renderChart() {
     datasets.push({
       label: 'Upper BB',
       data: bb.upper,
-      borderColor: 'rgba(192, 132, 252, 0.6)',
+      borderColor: 'rgba(139, 148, 119, 0.7)',
       borderWidth: 1,
       fill: false,
       pointRadius: 0,
@@ -467,10 +467,10 @@ function renderChart() {
     datasets.push({
       label: 'Lower BB',
       data: bb.lower,
-      borderColor: 'rgba(192, 132, 252, 0.6)',
+      borderColor: 'rgba(139, 148, 119, 0.7)',
       borderWidth: 1,
       fill: '-1',
-      backgroundColor: 'rgba(192, 132, 252, 0.08)',
+      backgroundColor: 'rgba(139, 148, 119, 0.12)',
       pointRadius: 0,
       yAxisID: 'y'
     });
@@ -483,7 +483,7 @@ function renderChart() {
       label: 'Volume',
       data: normalizedVol,
       type: 'bar',
-      backgroundColor: closes.map((c, i) => (i > 0 && c >= closes[i - 1] ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)')),
+      backgroundColor: closes.map((c, i) => (i > 0 && c >= closes[i - 1] ? 'rgba(31, 128, 84, 0.3)' : 'rgba(178, 87, 56, 0.3)')),
       yAxisID: 'y'
     });
   }
@@ -520,13 +520,13 @@ function renderChart() {
       scales: {
         x: {
           grid: { color: 'rgba(255, 255, 255, 0.04)' },
-          ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 12 }
+          ticks: { color: '#5c7d68', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 12 }
         },
         y: {
           position: 'right',
           grid: { color: 'rgba(255, 255, 255, 0.04)' },
           ticks: {
-            color: '#64748b',
+            color: '#5c7d68',
             font: { family: 'JetBrains Mono', size: 11 },
             callback: (val) => `$${val.toFixed(0)}`
           }
@@ -590,16 +590,16 @@ function renderTechnicalRadar() {
   if (el.rsiBadge) {
     if (rsi.value >= 70) {
       el.rsiBadge.textContent = 'OVERBOUGHT';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20';
+      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-clay-500/10 text-clay-400 border border-clay-500/20';
     } else if (rsi.value <= 30) {
       el.rsiBadge.textContent = 'OVERSOLD';
       el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
     } else if (rsi.value >= 60) {
       el.rsiBadge.textContent = 'BULLISH';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20';
+      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-moss-500/10 text-moss-300 border border-moss-500/20';
     } else {
       el.rsiBadge.textContent = 'NEUTRAL';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700';
+      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-paper-800 text-paper-300 border border-paper-700';
     }
   }
 
@@ -621,14 +621,14 @@ function renderTechnicalRadar() {
   // 4. Dedicated Section 2: MACD
   if (el.macdValue) {
     el.macdValue.textContent = `${macd.histogram >= 0 ? '+' : ''}${macd.histogram}`;
-    el.macdValue.className = macd.histogram >= 0 ? 'text-2xl font-mono font-extrabold text-emerald-400' : 'text-2xl font-mono font-extrabold text-rose-400';
+    el.macdValue.className = macd.histogram >= 0 ? 'text-2xl font-mono font-extrabold text-emerald-400' : 'text-2xl font-mono font-extrabold text-clay-400';
   }
   if (el.macdStatusText) el.macdStatusText.textContent = macd.status;
   if (el.macdLineVal) el.macdLineVal.textContent = `${macd.macd >= 0 ? '+' : ''}${macd.macd}`;
   if (el.macdSignalVal) el.macdSignalVal.textContent = `${macd.signal >= 0 ? '+' : ''}${macd.signal}`;
   if (el.macdHistVal) {
     el.macdHistVal.textContent = `${macd.histogram >= 0 ? '+' : ''}${macd.histogram}`;
-    el.macdHistVal.className = macd.histogram >= 0 ? 'font-bold text-emerald-400' : 'font-bold text-rose-400';
+    el.macdHistVal.className = macd.histogram >= 0 ? 'font-bold text-emerald-400' : 'font-bold text-clay-400';
   }
   if (el.macdBadge) {
     if (macd.histogram >= 0) {
@@ -636,7 +636,7 @@ function renderTechnicalRadar() {
       el.macdBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
     } else {
       el.macdBadge.textContent = 'BEARISH CROSSOVER';
-      el.macdBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20';
+      el.macdBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-clay-500/10 text-clay-400 border border-clay-500/20';
     }
   }
   if (el.macdComment) {
@@ -654,12 +654,12 @@ function renderTechnicalRadar() {
   if (el.maSma50Val) el.maSma50Val.textContent = `$${sma50.toFixed(2)}`;
   if (el.maSma50Diff) {
     el.maSma50Diff.textContent = `${diff50 >= 0 ? '+' : ''}${diff50}% vs 50D`;
-    el.maSma50Diff.className = diff50 >= 0 ? 'text-[10px] text-emerald-400 block font-bold' : 'text-[10px] text-rose-400 block font-bold';
+    el.maSma50Diff.className = diff50 >= 0 ? 'text-[10px] text-emerald-400 block font-bold' : 'text-[10px] text-clay-400 block font-bold';
   }
   if (el.maSma200Val) el.maSma200Val.textContent = `$${sma200.toFixed(2)}`;
   if (el.maSma200Diff) {
     el.maSma200Diff.textContent = `${diff200 >= 0 ? '+' : ''}${diff200}% vs 200D`;
-    el.maSma200Diff.className = diff200 >= 0 ? 'text-[10px] text-emerald-400 block font-bold' : 'text-[10px] text-rose-400 block font-bold';
+    el.maSma200Diff.className = diff200 >= 0 ? 'text-[10px] text-emerald-400 block font-bold' : 'text-[10px] text-clay-400 block font-bold';
   }
   if (el.maTrendBadge) {
     if (sma50 >= sma200) {
@@ -667,7 +667,7 @@ function renderTechnicalRadar() {
       el.maTrendBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
     } else {
       el.maTrendBadge.textContent = 'DEATH CROSS / BEARISH';
-      el.maTrendBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20';
+      el.maTrendBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-ochre-500/10 text-ochre-400 border border-ochre-500/20';
     }
   }
   if (el.maComment) {
@@ -693,13 +693,13 @@ function renderTechnicalRadar() {
   if (el.bbPosBadge) {
     if (pctB >= 80) {
       el.bbPosBadge.textContent = 'UPPER BAND TEST';
-      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20';
+      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sage-500/10 text-sage-300 border border-sage-500/20';
     } else if (pctB <= 20) {
       el.bbPosBadge.textContent = 'LOWER BAND TEST';
-      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20';
+      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-moss-500/10 text-moss-300 border border-moss-500/20';
     } else {
       el.bbPosBadge.textContent = 'MID CHANNEL';
-      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700';
+      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-paper-800 text-paper-300 border border-paper-700';
     }
   }
 
@@ -742,8 +742,8 @@ function renderAiSynthesis() {
   // Render bullet drivers
   if (el.aiDriversList) {
     el.aiDriversList.innerHTML = ai.keyDrivers.map(driver => `
-      <li class="flex items-start gap-2 text-xs text-slate-300">
-        <span class="text-cyan-400 font-bold mt-0.5">•</span>
+      <li class="flex items-start gap-2 text-xs text-paper-300">
+        <span class="text-mint-400 font-bold mt-0.5">•</span>
         <span class="leading-relaxed font-sans">${driver}</span>
       </li>
     `).join('');
@@ -755,20 +755,20 @@ async function renderNewsFeed() {
   const news = await get2026MarketNews(state.ticker, state.apiKeys.newsApi);
 
   el.newsContainer.innerHTML = news.map(item => `
-    <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800/60 hover:border-slate-700 transition flex flex-col justify-between space-y-3">
+    <div class="bg-paper-950/60 p-4 rounded-xl border border-paper-800/60 hover:border-paper-700 transition flex flex-col justify-between space-y-3">
       <div class="space-y-1.5">
         <div class="flex items-center justify-between text-[11px] font-mono">
-          <span class="text-indigo-400 font-bold">${item.source} ${item.isLive ? '<span class="text-[9px] text-cyan-400 bg-cyan-500/10 px-1 py-0.2 rounded border border-cyan-500/20 font-sans">LIVE NEWSAPI</span>' : ''}</span>
-          <span class="text-slate-500">${item.time}</span>
+          <span class="text-moss-400 font-bold">${item.source} ${item.isLive ? '<span class="text-[9px] text-mint-400 bg-mint-500/10 px-1 py-0.2 rounded border border-mint-500/20 font-sans">LIVE NEWSAPI</span>' : ''}</span>
+          <span class="text-paper-500">${item.time}</span>
         </div>
-        <h4 class="text-xs font-bold text-slate-100 leading-snug">${item.title}</h4>
-        <p class="text-[11px] text-slate-400 leading-relaxed">${item.snippet || ''}</p>
+        <h4 class="text-xs font-bold text-paper-100 leading-snug">${item.title}</h4>
+        <p class="text-[11px] text-paper-400 leading-relaxed">${item.snippet || ''}</p>
       </div>
-      <div class="flex items-center justify-between pt-2 border-t border-slate-800/40 text-[10px] font-mono">
-        <span class="px-2 py-0.5 rounded ${item.impact === 'Bullish' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : item.impact === 'Bearish' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-slate-800 text-slate-300'} font-bold">
+      <div class="flex items-center justify-between pt-2 border-t border-paper-800/40 text-[10px] font-mono">
+        <span class="px-2 py-0.5 rounded ${item.impact === 'Bullish' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : item.impact === 'Bearish' ? 'bg-clay-500/10 text-clay-400 border border-clay-500/20' : 'bg-paper-800 text-paper-300'} font-bold">
           ${item.impact}
         </span>
-        ${item.url && item.url !== '#' ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:underline transition">Read Article →</a>` : '<span class="text-slate-500">Curated Update</span>'}
+        ${item.url && item.url !== '#' ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="text-moss-400 hover:underline transition">Read Article →</a>` : '<span class="text-paper-500">Curated Update</span>'}
       </div>
     </div>
   `).join('');
@@ -792,22 +792,22 @@ function setupEventListeners() {
 
     if (matches.length > 0) {
       el.dropdown.innerHTML = `
-        <div class="px-3 py-1.5 bg-slate-950 border-b border-slate-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
+        <div class="px-3 py-1.5 bg-paper-950 border-b border-paper-800 text-[10px] font-mono text-paper-400 uppercase tracking-wider flex items-center justify-between">
           <span>S&P 500 Companies (${matches.length} found)</span>
           <span>Click to select</span>
         </div>
         ${matches.map(m => `
-          <div class="p-3 hover:bg-slate-800/90 cursor-pointer flex items-center justify-between border-b border-slate-800/40 last:border-0 transition" onclick="window.handleTickerSelect('${m.symbol}')">
+          <div class="p-3 hover:bg-paper-800/90 cursor-pointer flex items-center justify-between border-b border-paper-800/40 last:border-0 transition" onclick="window.handleTickerSelect('${m.symbol}')">
             <div class="space-y-0.5">
               <div class="flex items-center gap-2">
-                <span class="font-mono font-bold text-white text-sm">${m.symbol}</span>
-                <span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">${m.sector}</span>
+                <span class="font-mono font-bold text-paper-50 text-sm">${m.symbol}</span>
+                <span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-moss-500/10 text-moss-300 border border-moss-500/20">${m.sector}</span>
               </div>
-              <span class="text-xs text-slate-400 block font-medium">${m.name}</span>
+              <span class="text-xs text-paper-400 block font-medium">${m.name}</span>
             </div>
             <div class="text-right space-y-0.5 font-mono text-xs">
-              <div class="font-bold text-white">$${m.price.toFixed(2)} <span class="${m.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}">(${m.changePct >= 0 ? '+' : ''}${m.changePct}%)</span></div>
-              <div class="text-[10px] text-slate-400">Cap: <strong class="text-slate-200">${m.cap}</strong> • P/E: <strong class="text-slate-200">${m.pe}</strong></div>
+              <div class="font-bold text-paper-50">$${m.price.toFixed(2)} <span class="${m.changePct >= 0 ? 'text-emerald-400' : 'text-clay-400'}">(${m.changePct >= 0 ? '+' : ''}${m.changePct}%)</span></div>
+              <div class="text-[10px] text-paper-400">Cap: <strong class="text-paper-200">${m.cap}</strong> • P/E: <strong class="text-paper-200">${m.pe}</strong></div>
             </div>
           </div>
         `).join('')}
@@ -815,7 +815,7 @@ function setupEventListeners() {
       el.dropdown.classList.remove('hidden');
     } else {
       el.dropdown.innerHTML = `
-        <div class="p-3 text-xs text-slate-400 font-mono text-center cursor-pointer hover:bg-slate-800" onclick="window.handleTickerSelect('${val.toUpperCase()}')">
+        <div class="p-3 text-xs text-paper-400 font-mono text-center cursor-pointer hover:bg-paper-800" onclick="window.handleTickerSelect('${val.toUpperCase()}')">
           Analyze custom ticker "<strong>${val.toUpperCase()}</strong>" →
         </div>
       `;
@@ -844,9 +844,9 @@ function setupEventListeners() {
       if (tf) {
         state.timeframe = tf;
         el.timeframePills.querySelectorAll('button').forEach(b => {
-          b.className = 'px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition';
+          b.className = 'px-2.5 py-1 rounded-lg text-paper-400 hover:text-paper-50 transition';
         });
-        btn.className = 'px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold shadow';
+        btn.className = 'px-2.5 py-1 rounded-lg bg-moss-600 text-paper-50 font-bold shadow';
         renderChart();
       }
     });
@@ -882,15 +882,15 @@ function setupEventListeners() {
   if (el.btnChartArea && el.btnChartCandle) {
     el.btnChartArea.addEventListener('click', () => {
       state.chartStyle = 'area';
-      el.btnChartArea.className = 'px-2 py-0.5 rounded font-semibold bg-indigo-600 text-white shadow';
-      el.btnChartCandle.className = 'px-2 py-0.5 rounded font-semibold text-slate-400 hover:text-white transition';
+      el.btnChartArea.className = 'px-2 py-0.5 rounded font-semibold bg-moss-600 text-paper-50 shadow';
+      el.btnChartCandle.className = 'px-2 py-0.5 rounded font-semibold text-paper-400 hover:text-paper-50 transition';
       renderChart();
     });
 
     el.btnChartCandle.addEventListener('click', () => {
       state.chartStyle = 'candles';
-      el.btnChartCandle.className = 'px-2 py-0.5 rounded font-semibold bg-indigo-600 text-white shadow';
-      el.btnChartArea.className = 'px-2 py-0.5 rounded font-semibold text-slate-400 hover:text-white transition';
+      el.btnChartCandle.className = 'px-2 py-0.5 rounded font-semibold bg-moss-600 text-paper-50 shadow';
+      el.btnChartArea.className = 'px-2 py-0.5 rounded font-semibold text-paper-400 hover:text-paper-50 transition';
       renderChart();
     });
   }
@@ -987,7 +987,7 @@ function renderSp500DirectoryTable() {
   if (filtered.length === 0) {
     el.sp500ModalTbody.innerHTML = `
       <tr>
-        <td colspan="7" class="p-8 text-center text-slate-500 font-mono text-xs">
+        <td colspan="7" class="p-8 text-center text-paper-500 font-mono text-xs">
           No S&P 500 companies found matching filters.
         </td>
       </tr>
@@ -996,20 +996,20 @@ function renderSp500DirectoryTable() {
   }
 
   el.sp500ModalTbody.innerHTML = filtered.map(c => `
-    <tr class="hover:bg-slate-800/80 cursor-pointer transition border-b border-slate-800/40 last:border-0" onclick="window.handleSp500DirectorySelect('${c.symbol}')">
+    <tr class="hover:bg-paper-800/80 cursor-pointer transition border-b border-paper-800/40 last:border-0" onclick="window.handleSp500DirectorySelect('${c.symbol}')">
       <td class="p-3">
-        <div class="font-bold text-white font-mono text-sm">${c.symbol}</div>
-        <div class="text-[11px] text-slate-400 font-sans">${c.name}</div>
+        <div class="font-bold text-paper-50 font-mono text-sm">${c.symbol}</div>
+        <div class="text-[11px] text-paper-400 font-sans">${c.name}</div>
       </td>
       <td class="p-3">
-        <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${c.sector}</span>
+        <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-paper-800 text-paper-300 border border-paper-700">${c.sector}</span>
       </td>
-      <td class="p-3 text-right font-bold text-white">$${c.price.toFixed(2)}</td>
-      <td class="p-3 text-right text-slate-300">${c.cap}</td>
-      <td class="p-3 text-right text-slate-300">${c.pe}</td>
+      <td class="p-3 text-right font-bold text-paper-50">$${c.price.toFixed(2)}</td>
+      <td class="p-3 text-right text-paper-300">${c.cap}</td>
+      <td class="p-3 text-right text-paper-300">${c.pe}</td>
       <td class="p-3 text-right text-emerald-400 font-bold">$${c.targetPrice ? c.targetPrice.toFixed(2) : '-'}</td>
       <td class="p-3 text-center">
-        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${c.rating === 'Strong Buy' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20'}">
+        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${c.rating === 'Strong Buy' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-moss-500/10 text-moss-300 border border-moss-500/20'}">
           ${c.rating}
         </span>
       </td>
