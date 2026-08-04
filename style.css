@@ -1,38 +1,120 @@
-/* Aura — Bauhaus x Matisse: cut-paper geometry, greens + ochre accent */
+/* ============================================================================
+   Aura — Bauhaus x Matisse, light edition
+   Cut-paper geometry, a graduated green range, one warm accent.
+
+   Colour lives in the token layer below. Every component references tokens, so
+   the whole theme can be retuned from one place.
+   ========================================================================= */
 
 :root {
-  color-scheme: dark;
-  --bh-line: rgba(216, 230, 211, 0.35);
-  --bh-tick: rgba(216, 230, 211, 0.18);
+  color-scheme: light;
+
+  /* --- surfaces, lightest to deepest --- */
+  --paper:        #f7f5ec;  /* page ground — warm, not white */
+  --surface:      #ffffff;  /* raised card */
+  --surface-sunk: #f1f0e4;  /* inset wells, table stripes */
+  --surface-mint: #e6efe2;  /* tinted panel, quiet emphasis */
+  --surface-deep: #14352a;  /* inverted blocks (header marks, dark cards) */
+
+  /* --- ink --- */
+  --ink:          #16281f;  /* primary text */
+  --ink-soft:     #46574c;  /* secondary text */
+  --ink-mute:     #6b7a70;  /* labels, captions — AA on --paper */
+  --ink-invert:   #f4f6ef;  /* text on --surface-deep */
+
+  /* --- lines --- */
+  --line:         #dcdcc9;  /* hairline borders */
+  --line-strong:  #b9c4b2;  /* emphasised rules */
+
+  /* --- greens: the dominant family --- */
+  --moss:         #2f7d4f;
+  --moss-deep:    #1d5c39;
+  --moss-soft:    #dceadf;
+  --pine:         #14352a;
+
+  /* --- accents, used sparingly --- */
+  --ochre:        #d08b1f;
+  --ochre-soft:   #fbeecf;
+  --clay:         #b3542f;
+  --clay-soft:    #f9e3d8;
+  --sky:          #2f6f86;  /* third accent, charts only */
+
+  /* --- semantic --- */
+  --up:           #1c6e46;
+  --up-soft:      #dcecdf;
+  --down:         #a8492a;
+  --down-soft:    #f8e2d7;
+  --flat:         #5d6b60;
+  --flat-soft:    #eceadd;
+
+  /* --- form --- */
+  --radius:       14px;
+  --radius-sm:    9px;
+  --shadow-sm:    0 1px 2px rgba(20, 53, 42, 0.05);
+  --shadow:       0 2px 6px rgba(20, 53, 42, 0.06), 0 8px 24px rgba(20, 53, 42, 0.05);
+  --shadow-lift:  0 4px 12px rgba(20, 53, 42, 0.09), 0 16px 40px rgba(20, 53, 42, 0.08);
 }
+
+/* ---------------------------------------------------------------- base --- */
 
 body {
-  background-color: #081a13;
-  background-image:
-    radial-gradient(ellipse 900px 500px at 100% -10%, rgba(47, 128, 73, 0.12), transparent 60%),
-    radial-gradient(ellipse 700px 500px at -10% 110%, rgba(228, 162, 56, 0.06), transparent 55%);
-  background-attachment: fixed;
-  color: #eef2e4;
+  background-color: var(--paper);
+  color: var(--ink);
   font-family: 'Archivo', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Scrollbar */
+body.modal-open {
+  overflow: hidden;
+}
+
+::selection {
+  background: var(--moss);
+  color: #fff;
+}
+
+/* Visible, on-brand focus ring everywhere, but only for keyboard users */
+:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Tabular figures for every price, so columns of numbers line up */
+.font-mono,
+.tabular {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------------- scrollbar --- */
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #081a13;
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #234433;
-  border-radius: 2px;
+  background: var(--line-strong);
+  border-radius: 99px;
+  border: 3px solid var(--paper);
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #3c5c48;
+  background: var(--ink-mute);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -43,88 +125,632 @@ body {
   scrollbar-width: none;
 }
 
-/* Ticker Tape Marquee Animation */
+/* --------------------------------------------------------------- cards --- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.card--quiet {
+  background: var(--surface-sunk);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.card--tint {
+  background: var(--surface-mint);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* Plate-style eyebrow label above a section title */
+.eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+/* Ruled hairline with measuring ticks — lifted from the poster plates */
+.rule-ticked {
+  height: 5px;
+  background-image:
+    linear-gradient(var(--line-strong), var(--line-strong)),
+    repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px 12px);
+  background-size: 100% 1px, 100% 5px;
+  background-position: top, top;
+  background-repeat: no-repeat, repeat-x;
+  opacity: 0.7;
+}
+
+/* ---------------------------------------------------------------- tags --- */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.tag.is-up      { background: var(--up-soft);    color: var(--up); }
+.tag.is-down    { background: var(--down-soft);  color: var(--down); }
+.tag.is-flat,
+.tag.is-neutral { background: var(--flat-soft);  color: var(--flat); }
+.tag.is-accent  { background: var(--ochre-soft); color: #8a5a0f; }
+
+/* Up/down must never be colour-only — pair the tint with a glyph */
+.delta::before {
+  content: '▲';
+  font-size: 0.8em;
+  margin-right: 3px;
+}
+.delta.is-down::before {
+  content: '▼';
+}
+
+/* ------------------------------------------------- numbers & statistics --- */
+
+.stat-lg {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.num,
+.num-sm {
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.num-sm { font-size: 10.5px; }
+
+.is-up   { color: var(--up); }
+.is-down { color: var(--down); }
+.is-flat { color: var(--flat); }
+
+.metric__delta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+/* Big price + change chip in the hero */
+.delta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 700;
+}
+.delta-chip.is-up   { background: var(--up-soft);   color: var(--up); }
+.delta-chip.is-down { background: var(--down-soft); color: var(--down); }
+
+/* ------------------------------------------------------ chips & segments --- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.14s ease, background 0.14s ease, color 0.14s ease;
+}
+.chip:hover {
+  border-color: var(--moss);
+  color: var(--ink);
+}
+.chip.is-active {
+  background: var(--pine);
+  border-color: var(--pine);
+  color: var(--ink-invert);
+}
+.chip__sym { letter-spacing: 0.01em; }
+.chip__delta { font-size: 10px; font-weight: 600; }
+.chip.is-active .chip__delta { color: #a9d7b4; }
+
+.chip--sm { padding: 4px 9px; font-size: 11px; }
+
+/* Watchlist star */
+.btn-watch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--line-strong);
+  cursor: pointer;
+  transition: color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+.btn-watch:hover {
+  color: var(--ochre);
+  border-color: var(--ochre);
+  transform: scale(1.06);
+}
+.btn-watch.is-on {
+  color: var(--ochre);
+  border-color: var(--ochre);
+  background: var(--ochre-soft);
+}
+
+/* Segmented control (timeframes, chart style) */
+.seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface-sunk);
+  border-radius: 999px;
+}
+.seg-btn {
+  padding: 4px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-mute);
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.seg-btn:hover { color: var(--ink); }
+.seg-btn.is-active {
+  background: var(--surface);
+  color: var(--moss-deep);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Overlay toggles on the chart */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: opacity 0.14s ease, border-color 0.14s ease;
+}
+.toggle:hover { border-color: var(--line-strong); }
+.toggle.opacity-50 { opacity: 0.45; }
+.toggle__swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Live API status dot */
+.status-dot {
+  position: relative;
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+.status-ping {
+  position: absolute;
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  opacity: 0.7;
+  animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.status-dot.is-ok,      .status-ping.is-ok      { background: var(--up); }
+.status-dot.is-live,    .status-ping.is-live    { background: var(--moss); }
+.status-dot.is-partial, .status-ping.is-partial { background: var(--ochre); }
+
+@keyframes ping {
+  75%, 100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Meters (RSI, %B) — the fill colour carries the zone */
+.meter__fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease, background-color 0.3s ease;
+}
+.meter__fill.is-cold { background: var(--sky); }
+.meter__fill.is-mid  { background: var(--moss); }
+.meter__fill.is-hot  { background: var(--clay); }
+.meter__fill.is-band { background: var(--pine); }
+
+/* AI key-driver bullets */
+.driver {
+  position: relative;
+  padding-left: 18px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.driver::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 6px;
+  width: 7px;
+  height: 7px;
+  background: var(--moss);
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+/* --------------------------------------------------------- ticker tape --- */
+
+.tape-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.tape-item--link {
+  cursor: pointer;
+  border-radius: 5px;
+  padding: 1px 5px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tape-item--link:hover {
+  background: var(--moss-soft);
+  color: var(--moss-deep);
+}
+
+.tape-label { font-weight: 700; color: var(--ink); }
+.tape-price { color: var(--ink-soft); }
+.tape-delta { font-weight: 600; }
+.tape-delta.is-up   { color: var(--up); }
+.tape-delta.is-down { color: var(--down); }
+.tape-sep {
+  color: var(--line-strong);
+  padding: 0 2px;
+}
+
 @keyframes marquee {
-  0% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+  0%   { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
 }
 
 .animate-marquee {
   display: flex;
   width: max-content;
-  animation: marquee 35s linear infinite;
+  animation: marquee 60s linear infinite;
 }
-
 .animate-marquee:hover {
   animation-play-state: paused;
 }
 
-/* Flat cut-paper card: opaque field, hairline border, no glassmorphism blur */
-.bh-card {
-  background-color: #0f241b;
-  border: 1px solid #1a3327;
+/* ------------------------------------------------------ search results --- */
+
+.dropdown__head {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: var(--surface-sunk);
+  border-bottom: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
 }
 
-.bh-card:hover {
-  border-color: #234433;
+.dropdown__row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.dropdown__row:last-child { border-bottom: 0; }
+.dropdown__row:hover,
+.dropdown__row.is-active { background: var(--moss-soft); }
+
+.dropdown__ident { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dropdown__sym {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+}
+.dropdown__name {
+  font-size: 11.5px;
+  color: var(--ink-mute);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 34ch;
+}
+.dropdown__stats {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.dropdown__price { font-weight: 700; color: var(--ink); }
+.dropdown__delta { font-size: 11px; font-weight: 600; }
+.dropdown__delta.is-up   { color: var(--up); }
+.dropdown__delta.is-down { color: var(--down); }
+
+.dropdown__empty {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: none;
+  border: 0;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  text-align: center;
+  cursor: pointer;
+}
+.dropdown__empty:hover { background: var(--moss-soft); }
+
+/* ------------------------------------------------------------ news feed --- */
+
+.news-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  transition: box-shadow 0.16s ease, transform 0.16s ease;
+}
+.news-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
 }
 
-/* Corner registration marks, lifted from the poster series' plate crops */
-.bh-frame {
-  position: relative;
-}
+.news-card__body { display: flex; flex-direction: column; gap: 6px; }
 
-.bh-frame::before,
-.bh-frame::after {
-  content: '';
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  pointer-events: none;
-  opacity: 0.5;
+.news-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--ink-mute);
 }
-
-.bh-frame::before {
-  top: 10px;
-  left: 10px;
-  border-top: 1.5px solid var(--bh-line);
-  border-left: 1.5px solid var(--bh-line);
+.news-card__source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--moss-deep);
 }
-
-.bh-frame::after {
-  top: 10px;
-  right: 10px;
-  border-top: 1.5px solid var(--bh-line);
-  border-right: 1.5px solid var(--bh-line);
+.news-card__time { color: var(--ink-mute); }
+.news-card__live {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--up-soft);
+  color: var(--up);
+  font-size: 9px;
+  letter-spacing: 0.08em;
 }
-
-/* Ruled hairline with ticks, under plate-style eyebrow labels */
-.bh-ruler {
-  height: 5px;
-  background-image:
-    linear-gradient(var(--bh-line), var(--bh-line)),
-    repeating-linear-gradient(to right, var(--bh-tick) 0 1px, transparent 1px 12px);
-  background-size: 100% 1px, 100% 5px;
-  background-position: top, top;
-  background-repeat: no-repeat, repeat-x;
+.news-card__title {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink);
 }
+.news-card__snippet {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.news-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+}
+.news-card__link {
+  color: var(--moss);
+  font-weight: 600;
+  text-decoration: none;
+}
+.news-card__link:hover { text-decoration: underline; }
+.news-card__curated { color: var(--ink-mute); }
 
-/* Custom Tabular Numbers for Prices */
-.font-mono {
+/* ------------------------------------------------------------ directory --- */
+
+.dir__row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  transition: background 0.12s ease;
+}
+.dir__row:hover { background: var(--moss-soft); }
+.dir__row:last-child { border-bottom: 0; }
+
+.dir__cell { padding: 10px 12px; vertical-align: middle; }
+.dir__sym {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+}
+.dir__name { font-size: 11.5px; color: var(--ink-mute); }
+.dir__num {
+  text-align: right;
   font-family: 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+.dir__num--strong { font-weight: 700; color: var(--ink); }
+.dir__num--target { color: var(--up); font-weight: 600; }
+.dir__rating { text-align: center; }
+.dir__empty {
+  padding: 40px 16px;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  color: var(--ink-mute);
 }
 
-/* Pulse animation for live indicators */
+/* -------------------------------------------------- AI research note --- */
+/* Styled by semantic class so model output follows the theme automatically */
+
+.ai-prose { font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); }
+
+.ai-h1,
+.ai-h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+}
+.ai-h1::before,
+.ai-h2::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  background: var(--moss);
+  border-radius: 2px;
+}
+.ai-h2::before {
+  border-radius: 999px;
+  background: var(--ochre);
+}
+.ai-h3 {
+  margin: 12px 0 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ai-p { margin-bottom: 9px; }
+.ai-rule { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+
+.ai-strong {
+  font-weight: 700;
+  color: var(--moss-deep);
+  background: var(--moss-soft);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+.ai-list { margin: 8px 0; padding: 0; list-style: none; }
+.ai-li {
+  position: relative;
+  padding-left: 16px;
+  margin-bottom: 5px;
+}
+.ai-li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  background: var(--ochre);
+  border-radius: 999px;
+}
+
+/* --------------------------------------------------------------- toast --- */
+
+#toast-region {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-deep);
+  color: var(--ink-invert);
+  font-size: 12.5px;
+  font-weight: 500;
+  box-shadow: var(--shadow-lift);
+  animation: toast-in 0.22s ease-out;
+}
+.toast--error { background: var(--down); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ------------------------------------------------------------- motion --- */
+
 @keyframes pulse-subtle {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50%      { opacity: 0.35; }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-.animate-pulse-subtle {
-  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-marquee { animation: none; }
 }

@@ -1,59 +1,38 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Aura by JLMG | Financial Intelligence & S&P 500 Analytics</title>
+  <meta name="theme-color" content="#f7f5ec" />
+  <meta name="description" content="Aura — S&P 500 market analytics, technical indicators and AI research synthesis." />
+  <title>Aura by JLMG · S&P 500 Analytics</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Archivo', 'sans-serif'],
-            display: ['Oswald', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace'],
+            sans: ['Archivo', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
           },
           colors: {
-            paper: {
-              50: '#f6f3e7', 100: '#eef2e4', 200: '#d8e6d3', 300: '#b7cdb8',
-              400: '#8aa48f', 500: '#5c7d68', 600: '#3c5c48', 700: '#234433',
-              800: '#1a3327', 900: '#0f241b', 950: '#081a13',
-            },
-            moss: {
-              50: '#eaf5ec', 100: '#cfe8d4', 200: '#a3d3ac', 300: '#74ba82',
-              400: '#4c9f5e', 500: '#2f8049', 600: '#226b3c', 700: '#1c5631',
-              800: '#184627', 900: '#143a21', 950: '#0b2314',
-            },
-            mint: {
-              50: '#f2f8ee', 100: '#e2eeda', 200: '#c9dfbb', 300: '#aacf9b',
-              400: '#8cbb82', 500: '#6da571', 600: '#558a5c', 700: '#446e4c',
-              800: '#38583f', 900: '#2f4936', 950: '#182a1c',
-            },
-            sage: {
-              50: '#f1f2ec', 100: '#e0e3d5', 200: '#c5cab3', 300: '#a6ad91',
-              400: '#8b9477', 500: '#74805f', 600: '#5e694c', 700: '#4c543f',
-              800: '#3f4636', 900: '#363c2e', 950: '#1d2018',
-            },
-            ochre: {
-              50: '#fdf6e8', 100: '#faeac5', 200: '#f4d692', 300: '#edbd5e',
-              400: '#e4a238', 500: '#d3922b', 600: '#b07620', 700: '#8c5c1c',
-              800: '#71491c', 900: '#5e3d1b', 950: '#33200d',
-            },
-            clay: {
-              50: '#fbf1ec', 100: '#f4dccd', 200: '#e8b8a0', 300: '#d99271',
-              400: '#c66f4c', 500: '#b25738', 600: '#954730', 700: '#793a29',
-              800: '#632f23', 900: '#52281f', 950: '#2c140f',
-            },
-            emerald: {
-              50: '#e9f6ee', 100: '#c9e9d4', 200: '#98d3ac', 300: '#63b884',
-              400: '#369c66', 500: '#1f8054', 600: '#186b46', 700: '#14573a',
-              800: '#12472f', 900: '#113b29', 950: '#082017',
-            },
+            paper:   { DEFAULT: '#f7f5ec', sunk: '#f1f0e4', mint: '#e6efe2' },
+            ink:     { DEFAULT: '#16281f', soft: '#46574c', mute: '#6b7a70', invert: '#f4f6ef' },
+            line:    { DEFAULT: '#dcdcc9', strong: '#b9c4b2' },
+            moss:    { DEFAULT: '#2f7d4f', deep: '#1d5c39', soft: '#dceadf' },
+            pine:    '#14352a',
+            ochre:   { DEFAULT: '#d08b1f', soft: '#fbeecf' },
+            clay:    { DEFAULT: '#b3542f', soft: '#f9e3d8' },
+            up:      { DEFAULT: '#1c6e46', soft: '#dcecdf' },
+            down:    { DEFAULT: '#a8492a', soft: '#f8e2d7' },
+          },
+          borderRadius: { xl2: '14px' },
+          boxShadow: {
+            card: '0 1px 2px rgba(20,53,42,0.05)',
+            lift: '0 2px 6px rgba(20,53,42,0.06), 0 8px 24px rgba(20,53,42,0.05)',
           },
         }
       }
@@ -61,722 +40,551 @@
   </script>
   <link rel="stylesheet" href="./style.css" />
 </head>
-<body class="bg-paper-950 text-paper-100 font-sans antialiased selection:bg-moss-600 selection:text-paper-50 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
 
-  <!-- TOP LIVE MARKET TICKER TAPE -->
-  <div class="ticker-tape-container border-b border-paper-800 bg-paper-950 py-2 overflow-hidden text-xs font-mono select-none">
-    <div class="ticker-tape flex items-center gap-8 whitespace-nowrap animate-marquee" id="ticker-tape">
-      <!-- Dynamically filled ticker items -->
+  <a href="#main" class="sr-only">Skip to main content</a>
+
+  <!-- LIVE MARKET TICKER TAPE -->
+  <div class="border-b border-line bg-paper-sunk py-1.5 overflow-hidden select-none">
+    <div class="flex items-center gap-6 whitespace-nowrap animate-marquee" id="ticker-tape" aria-hidden="true">
+      <!-- Populated by JS -->
     </div>
   </div>
 
-  <!-- MAIN APP HEADER -->
-  <header class="sticky top-0 z-40 bg-paper-950 border-b border-paper-800 px-4 lg:px-8 py-3.5 flex items-center justify-between gap-4">
-    <!-- Brand Logo -->
-    <div class="flex items-center gap-3">
-      <div class="relative flex items-center justify-center w-10 h-10 shrink-0">
-        <svg viewBox="0 0 40 40" class="w-full h-full" aria-hidden="true">
-          <rect x="15" y="15" width="21" height="21" fill="#184627" />
-          <circle cx="17" cy="18" r="15" fill="#2f8049" />
-          <polygon points="30,9 37,9 33.5,3" fill="#e4a238" />
-          <path d="M 9 7 L 15 4 L 24 33 L 18 36 Z" fill="#081a13" />
-        </svg>
-      </div>
-      <div class="flex items-baseline gap-1.5">
-        <span class="font-display font-semibold tracking-tight text-moss-200 text-2xl uppercase">Aura</span>
-        <span class="text-sm font-semibold text-paper-400 tracking-normal">by JLMG</span>
-      </div>
-    </div>
+  <!-- HEADER -->
+  <header class="sticky top-0 z-40 bg-paper/95 backdrop-blur-sm border-b border-line px-4 lg:px-8 py-3 flex items-center justify-between gap-4">
+    <!-- Wordmark: cut-paper disc, square and blade -->
+    <a href="#main" class="flex items-center gap-2.5 shrink-0 no-underline">
+      <svg viewBox="0 0 40 40" class="w-9 h-9" aria-hidden="true">
+        <rect x="16" y="16" width="20" height="20" rx="1" fill="#b7cdb8" />
+        <circle cx="17" cy="18" r="15" fill="#2f7d4f" />
+        <path d="M 9 7 L 15 4.5 L 23.5 32 L 17.5 34.5 Z" fill="#14352a" />
+        <polygon points="30,10 37,10 33.5,4" fill="#d08b1f" />
+      </svg>
+      <span class="flex items-baseline gap-1.5">
+        <span class="text-[22px] font-extrabold tracking-[-0.03em] text-pine">Aura</span>
+        <span class="text-[13px] font-medium text-ink-mute">by JLMG</span>
+      </span>
+    </a>
 
-    <!-- Center Search & Quick Select Tickers -->
-    <div class="hidden md:flex items-center gap-3 max-w-xl w-full">
+    <!-- Search -->
+    <div class="hidden md:flex items-center max-w-lg w-full">
       <div class="relative w-full">
-        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-paper-500">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <label for="ticker-search" class="sr-only">Search S&amp;P 500 companies</label>
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-ink-mute">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         </div>
-        <input 
-          id="ticker-search" 
-          type="text" 
-          placeholder="Search S&P 500 Companies (e.g. NVDA, AAPL, MSFT, LLY, JPM, AMZN, COST)..." 
-          class="w-full pl-10 pr-12 py-2 text-sm bg-paper-900/90 border border-paper-800 rounded-xl text-paper-100 placeholder-paper-500 focus:outline-none focus:border-moss-500 focus:ring-1 focus:ring-moss-500 transition font-mono"
+        <input
+          id="ticker-search"
+          type="text"
+          placeholder="Search 80 S&P 500 companies…"
+          class="w-full pl-9 pr-14 py-2 text-sm bg-white border border-line rounded-full text-ink placeholder-ink-mute focus:outline-none focus:border-moss focus:ring-2 focus:ring-moss/20 transition"
           autocomplete="off"
+          role="combobox"
+          aria-expanded="false"
+          aria-controls="search-results-dropdown"
         />
         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-          <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-paper-400 bg-paper-800 border border-paper-700 rounded">⌘K</kbd>
+          <kbd class="px-1.5 py-0.5 text-[10px] font-mono text-ink-mute bg-paper-sunk border border-line rounded">⌘K</kbd>
         </div>
-        <!-- Search Autocomplete Dropdown -->
-        <div id="search-results-dropdown" class="hidden absolute top-full left-0 right-0 mt-2 bg-paper-900 border border-paper-800 rounded-xl shadow-2xl z-50 overflow-hidden max-h-80 overflow-y-auto">
-          <!-- Populated by JS -->
-        </div>
+        <div id="search-results-dropdown" class="hidden absolute top-full left-0 right-0 mt-2 bg-white border border-line rounded-xl2 shadow-lift z-50 overflow-hidden max-h-96 overflow-y-auto"></div>
       </div>
     </div>
 
-    <!-- Right Quick Actions -->
-    <div class="flex items-center gap-3">
-      <!-- API Status Button -->
-      <button id="btn-open-api-modal" class="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-paper-900 border border-paper-800 hover:border-paper-700 text-paper-300 hover:text-paper-50 transition group">
+    <!-- Actions -->
+    <div class="flex items-center gap-2 shrink-0">
+      <button id="btn-open-api-modal" class="flex items-center gap-2 pl-2.5 pr-3 py-1.5 rounded-full text-xs font-semibold bg-white border border-line hover:border-line-strong text-ink-soft transition">
         <span class="relative flex h-2 w-2">
-          <span id="api-status-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span id="api-status-dot" class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          <span id="api-status-ping" class="status-ping is-ok"></span>
+          <span id="api-status-dot" class="status-dot is-ok"></span>
         </span>
-        <span id="api-status-label" class="hidden sm:inline">API Config</span>
-        <svg class="w-3.5 h-3.5 text-paper-500 group-hover:text-paper-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span id="api-status-label" class="hidden sm:inline">API</span>
       </button>
-
-      <!-- Refresh Data Button -->
-      <button id="btn-refresh" title="Sync Market Data" class="p-2 rounded-xl bg-paper-900 border border-paper-800 hover:border-paper-700 text-paper-400 hover:text-moss-400 transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      <button id="btn-refresh" title="Refresh market data" aria-label="Refresh market data" class="p-2 rounded-full bg-white border border-line hover:border-moss text-ink-soft hover:text-moss transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
       </button>
     </div>
   </header>
 
-  <!-- QUICK TICKER SELECTOR BAR -->
-  <div class="border-b border-paper-800/40 bg-paper-950 px-4 lg:px-8 py-2.5 flex items-center justify-between gap-4 overflow-x-auto no-scrollbar">
-    <div class="flex items-center gap-3 text-xs shrink-0">
-      <span class="text-paper-500 font-medium uppercase tracking-wider text-[11px] shrink-0">Trending S&P 500:</span>
-      <div id="quick-ticker-pills" class="flex items-center gap-1.5 shrink-0">
-        <!-- Populated dynamically -->
-      </div>
-      <button id="btn-open-sp500-modal" class="px-3 py-1.5 rounded-xl bg-moss-500/10 border border-moss-500/30 text-moss-300 hover:bg-moss-500/20 text-xs font-mono font-semibold flex items-center gap-1.5 transition shrink-0">
-        <svg class="w-3.5 h-3.5 text-moss-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-        S&P 500 Directory →
-      </button>
+  <!-- QUICK SELECT -->
+  <div class="border-b border-line bg-paper px-4 lg:px-8 py-2.5 flex items-center gap-4 overflow-x-auto no-scrollbar">
+    <span class="eyebrow shrink-0">Trending</span>
+    <div id="quick-ticker-pills" class="flex items-center gap-1.5 shrink-0"></div>
+
+    <div id="watchlist-wrap" class="hidden items-center gap-2 shrink-0 pl-3 ml-1 border-l border-line">
+      <span class="eyebrow shrink-0">Watching</span>
+      <div id="watchlist" class="flex items-center gap-1.5 shrink-0"></div>
     </div>
-    <div class="hidden lg:flex items-center gap-3 text-xs text-paper-400 font-mono shrink-0 whitespace-nowrap ml-4">
-      <span>2026 Market Time: <strong class="text-paper-200">16:00 EST</strong></span>
-      <span class="w-1 h-1 rounded-full bg-paper-700"></span>
-      <span class="text-emerald-400 flex items-center gap-1">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-        US Markets Open
+
+    <button id="btn-open-sp500-modal" class="chip shrink-0 !border-moss !text-moss-deep">
+      Directory
+      <span aria-hidden="true">→</span>
+    </button>
+    <div class="hidden lg:flex items-center gap-2.5 text-[11px] font-mono text-ink-mute shrink-0 whitespace-nowrap ml-auto">
+      <span class="flex items-center gap-1.5">
+        <span class="w-1.5 h-1.5 rounded-full bg-up"></span>
+        Markets open
       </span>
+      <span class="text-line-strong">·</span>
+      <span>16:00 EST</span>
     </div>
   </div>
 
-  <!-- MAIN DASHBOARD CONTENT -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+  <!-- MAIN -->
+  <main id="main" class="flex-1 w-full max-w-[1400px] mx-auto px-4 lg:px-8 py-6 space-y-6">
 
-    <!-- HERO OVERVIEW BANNER CARD -->
-    <div id="hero-card" class="relative rounded-2xl bh-card bh-frame p-6 shadow-md overflow-hidden">
-      <!-- Cut-paper disc + blade motif -->
-      <svg class="absolute -right-14 -top-14 w-56 h-56 pointer-events-none opacity-90" viewBox="0 0 200 200" aria-hidden="true">
-        <circle cx="100" cy="100" r="95" fill="#143a21" />
-        <path d="M 70 15 L 90 5 L 130 175 L 110 185 Z" fill="#081a13" />
+    <!-- HERO — the one deliberate "plate" moment on the page -->
+    <section id="hero-card" class="relative rounded-xl2 bg-paper-mint border border-moss/15 overflow-hidden">
+      <!-- Cut-paper motif: a disc eclipsed by a quarter-disc, anchored to the top-right corner -->
+      <svg class="absolute right-0 top-0 h-full w-[620px] pointer-events-none hidden lg:block" viewBox="0 0 620 240" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+        <!-- large disc sits in the open middle of the card, not behind the data panel -->
+        <circle cx="196" cy="118" r="104" fill="#bcd4bd" />
+        <circle cx="196" cy="118" r="104" fill="none" stroke="#14352a" stroke-width="1" opacity="0.18" />
+        <!-- blade cuts the disc, in the paper colour -->
+        <path d="M 150 -30 L 176 -36 L 240 272 L 210 280 Z" fill="#e6efe2" />
+        <!-- ochre quarter-disc — the single warm note, deliberately small -->
+        <path d="M 196 118 L 138 118 A 58 58 0 0 0 196 176 Z" fill="#d08b1f" />
+        <circle cx="112" cy="52" r="17" fill="#f7f5ec" />
+        <!-- top-right corner mark, echoing the plate crops -->
+        <path d="M 620 0 L 620 96 A 96 96 0 0 0 524 0 Z" fill="#14352a" opacity="0.9" />
       </svg>
 
-      <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-        <!-- Left: Ticker Title & Details -->
-        <div class="space-y-3">
-          <span class="block text-[10px] font-mono uppercase tracking-[0.2em] text-paper-500">Plate · Selected Instrument</span>
-          <div class="flex items-center gap-3 flex-wrap">
-            <h1 id="hero-ticker-symbol" class="text-3xl lg:text-4xl font-bold tracking-tight text-paper-50 font-mono">NVDA</h1>
-            <span id="hero-company-name" class="text-lg font-semibold text-paper-300">NVIDIA Corporation</span>
-            <span id="hero-sector-tag" class="px-2.5 py-1 rounded-full text-xs font-medium bg-paper-800 text-paper-300 border border-paper-700/60">Semiconductors</span>
-            <span id="hero-ytd-tag" class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">+48.2% 2026 YTD</span>
+      <div class="relative z-10 p-6 lg:p-7 flex flex-col lg:flex-row lg:items-end justify-between gap-7">
+        <div class="space-y-3 min-w-0">
+          <div class="space-y-1.5">
+            <span class="eyebrow">Selected instrument</span>
+            <div class="rule-ticked max-w-[180px]"></div>
           </div>
 
-          <!-- Price & Change -->
-          <div class="flex items-baseline gap-4">
-            <span id="hero-price" class="text-4xl lg:text-5xl font-black font-mono text-paper-50 tracking-tight">$148.25</span>
-            <div id="hero-change-container" class="flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono font-bold text-lg">
+          <div class="flex items-center gap-2.5 flex-wrap">
+            <h1 id="hero-ticker-symbol" class="text-[34px] leading-none font-extrabold tracking-[-0.03em] text-pine font-mono">NVDA</h1>
+            <span id="hero-company-name" class="text-base font-medium text-ink-soft">NVIDIA Corporation</span>
+            <button id="btn-watch" type="button" class="btn-watch" aria-pressed="false" aria-label="Add to watchlist" title="Add to watchlist">
+              <svg viewBox="0 0 24 24" class="w-[18px] h-[18px]" aria-hidden="true">
+                <path d="M12 3.5l2.6 5.6 6.1.8-4.5 4.2 1.2 6.1L12 17.3 6.6 20.2l1.2-6.1L3.3 9.9l6.1-.8z"
+                      fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap">
+            <span id="hero-sector-tag" class="tag is-neutral">Information Technology</span>
+            <span id="hero-ytd-tag" class="tag is-up">+15.2% YTD</span>
+            <span id="data-source-badge" class="tag is-flat">Model dataset</span>
+          </div>
+
+          <div class="flex items-baseline gap-3.5 flex-wrap pt-1" aria-live="polite" aria-atomic="true">
+            <span id="hero-price" class="text-[44px] leading-none font-extrabold tracking-[-0.035em] text-ink font-mono">$148.25</span>
+            <span id="hero-change-container" class="delta-chip is-up">
               <span id="hero-change-icon">▲</span>
               <span id="hero-change-dollar">+$4.90</span>
               <span id="hero-change-pct">(+3.42%)</span>
-            </div>
+            </span>
           </div>
         </div>
 
-        <!-- Right: Day Range & 52-Week Bars -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:w-96 bg-paper-950/60 p-4 rounded-xl border border-paper-800/60 text-xs font-mono">
-          <div>
-            <div class="flex justify-between text-paper-400 mb-1">
-              <span>Day Low</span>
-              <span>Day High</span>
+        <!-- Ranges — on their own paper panel so they stay legible over the motif -->
+        <div class="relative grid grid-cols-1 sm:grid-cols-2 gap-5 lg:w-[400px] shrink-0 bg-white rounded-xl2 p-4 shadow-lift">
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-[10px] font-mono uppercase tracking-wider text-ink-mute">
+              <span>Day low</span><span>Day high</span>
             </div>
-            <div class="flex justify-between text-paper-200 font-semibold mb-1.5">
+            <div class="flex justify-between text-[13px] font-mono font-semibold text-ink">
               <span id="hero-day-low">$144.10</span>
               <span id="hero-day-high">$149.80</span>
             </div>
-            <div class="w-full h-1.5 bg-paper-800 rounded-full overflow-hidden">
-              <div id="hero-day-bar" class="h-full bg-moss-500 rounded-full" style="width: 72%"></div>
+            <div class="w-full h-1.5 bg-paper-sunk rounded-full overflow-hidden">
+              <div id="hero-day-bar" class="h-full bg-moss rounded-full transition-all duration-500" style="width:72%"></div>
             </div>
           </div>
-
-          <div>
-            <div class="flex justify-between text-paper-400 mb-1">
-              <span>52W Low</span>
-              <span>52W High</span>
+          <div class="space-y-1.5">
+            <div class="flex justify-between text-[10px] font-mono uppercase tracking-wider text-ink-mute">
+              <span>52W low</span><span>52W high</span>
             </div>
-            <div class="flex justify-between text-paper-200 font-semibold mb-1.5">
+            <div class="flex justify-between text-[13px] font-mono font-semibold text-ink">
               <span id="hero-52w-low">$92.40</span>
               <span id="hero-52w-high">$154.00</span>
             </div>
-            <div class="w-full h-1.5 bg-paper-800 rounded-full overflow-hidden">
-              <div id="hero-52w-bar" class="h-full bg-emerald-500 rounded-full" style="width: 88%"></div>
+            <div class="w-full h-1.5 bg-paper-sunk rounded-full overflow-hidden">
+              <div id="hero-52w-bar" class="h-full bg-pine rounded-full transition-all duration-500" style="width:88%"></div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- MAIN GRID: CHART & AI RESEARCH -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- CHART + AI -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
 
-      <!-- LEFT COLUMN: INTERACTIVE CHART & TIMEFRAME CONTROLS (2 Cols) -->
-      <div class="lg:col-span-2 space-y-6">
+      <!-- Left: chart + fundamentals -->
+      <div class="xl:col-span-2 space-y-6">
 
-        <!-- Price Chart Card -->
-        <div class="rounded-2xl bh-card p-5 shadow-md flex flex-col justify-between space-y-4">
-          <!-- Chart Header & Timeframe Switcher -->
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-paper-800/60">
-            <div class="flex items-center gap-3">
-              <h2 class="font-display font-semibold uppercase tracking-wide text-paper-50 text-[15px] flex items-center gap-2">
-                <svg class="w-5 h-5 text-moss-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
-                Price Action & Volume
-              </h2>
-              <span class="text-xs font-mono text-paper-400">90 Daily Bars</span>
+        <section class="card p-5 lg:p-6 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5">
+              <span class="w-3 h-3 rounded-sm bg-moss shrink-0" aria-hidden="true"></span>
+              <h2 class="text-[15px] font-bold tracking-[-0.01em] text-ink">Price action</h2>
             </div>
-
-            <!-- Timeframe Selector Pills -->
-            <div id="timeframe-pills" class="flex items-center gap-1 bg-paper-950 p-1 rounded-xl border border-paper-800 text-xs font-mono">
-              <button data-tf="1D" class="px-2.5 py-1 rounded-lg text-paper-400 hover:text-paper-50 transition">1D</button>
-              <button data-tf="1W" class="px-2.5 py-1 rounded-lg text-paper-400 hover:text-paper-50 transition">1W</button>
-              <button data-tf="1M" class="px-2.5 py-1 rounded-lg text-paper-400 hover:text-paper-50 transition">1M</button>
-              <button data-tf="3M" class="px-2.5 py-1 rounded-lg bg-moss-600 text-paper-50 font-bold shadow">3M</button>
-              <button data-tf="YTD" class="px-2.5 py-1 rounded-lg text-paper-400 hover:text-paper-50 transition">2026 YTD</button>
-            </div>
-          </div>
-
-          <!-- Indicator Toggle Overlay Controls -->
-          <div class="flex items-center justify-between gap-2 overflow-x-auto text-xs font-mono py-1 border-b border-paper-800/40 pb-2">
             <div class="flex items-center gap-2">
-              <span class="text-paper-500 uppercase text-[10px] tracking-wider font-sans">Overlays:</span>
-              <button id="toggle-sma50" class="px-2.5 py-1 rounded-lg bg-moss-500/10 border border-moss-500/30 text-moss-300 font-medium hover:bg-moss-500/20 transition flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-moss-400"></span> 50 SMA
-              </button>
-              <button id="toggle-sma200" class="px-2.5 py-1 rounded-lg bg-ochre-500/10 border border-ochre-500/30 text-ochre-300 font-medium hover:bg-ochre-500/20 transition flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-ochre-400"></span> 200 SMA
-              </button>
-              <button id="toggle-bollinger" class="px-2.5 py-1 rounded-lg bg-sage-500/10 border border-sage-500/30 text-sage-300 font-medium hover:bg-sage-500/20 transition flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-sage-400"></span> Bollinger Bands
-              </button>
-              <button id="toggle-volume" class="px-2.5 py-1 rounded-lg bg-mint-500/10 border border-mint-500/30 text-mint-300 font-medium hover:bg-mint-500/20 transition flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-mint-400"></span> Volume
-              </button>
-            </div>
-
-            <!-- Chart Style Switcher -->
-            <div class="flex items-center gap-1 bg-paper-950 p-1 rounded-lg border border-paper-800 text-[11px]">
-              <button id="btn-chart-area" class="px-2 py-0.5 rounded font-semibold bg-moss-600 text-paper-50 shadow">Area</button>
-              <button id="btn-chart-candle" class="px-2 py-0.5 rounded font-semibold text-paper-400 hover:text-paper-50 transition">Candles</button>
-            </div>
-          </div>
-
-          <!-- Dynamic Live OHLC Hover Readout Bar -->
-          <div id="ohlc-readout-bar" class="flex items-center justify-between text-xs font-mono bg-paper-950/70 px-3 py-1.5 rounded-lg border border-paper-800/60 text-paper-300">
-            <span id="ohlc-date" class="font-bold text-moss-400">Latest Bar</span>
-            <div class="flex items-center gap-3">
-              <span>O: <strong id="ohlc-open" class="text-paper-50">$0.00</strong></span>
-              <span>H: <strong id="ohlc-high" class="text-emerald-400">$0.00</strong></span>
-              <span>L: <strong id="ohlc-low" class="text-clay-400">$0.00</strong></span>
-              <span>C: <strong id="ohlc-close" class="text-paper-50">$0.00</strong></span>
-              <span>Vol: <strong id="ohlc-vol" class="text-mint-400">0M</strong></span>
-            </div>
-          </div>
-
-          <!-- Chart Canvas Container -->
-          <div class="relative w-full h-[340px]">
-            <canvas id="priceChart"></canvas>
-            <!-- Loading overlay -->
-            <div id="chart-loader" class="hidden absolute inset-0 bg-paper-950/70 backdrop-blur-sm flex items-center justify-center rounded-xl z-10">
-              <div class="flex items-center gap-3 px-4 py-2 bg-paper-900 rounded-xl border border-paper-800 text-sm text-paper-300 font-mono">
-                <svg class="animate-spin h-4 w-4 text-moss-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                Fetching Market Bars...
+              <div id="timeframe-pills" class="seg" role="group" aria-label="Chart timeframe">
+                <button data-tf="1M" class="seg-btn">1M</button>
+                <button data-tf="3M" class="seg-btn is-active">3M</button>
+                <button data-tf="6M" class="seg-btn">6M</button>
+                <button data-tf="YTD" class="seg-btn">YTD</button>
+                <button data-tf="1Y" class="seg-btn">1Y</button>
               </div>
+              <button id="btn-export" type="button" title="Download visible bars as CSV" aria-label="Download visible bars as CSV" class="p-2 rounded-full bg-white border border-line hover:border-moss text-ink-mute hover:text-moss transition shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+              </button>
             </div>
           </div>
-        </div>
 
-        <!-- 2026 VALUATION & FUNDAMENTALS METRICS GRID -->
-        <div class="rounded-2xl bh-card p-5 shadow-md space-y-4">
-          <div class="flex items-center justify-between pb-3 border-b border-paper-800/60">
-            <h2 class="font-display font-semibold uppercase tracking-wide text-paper-50 text-[15px] flex items-center gap-2">
-              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-              2026 Fundamental & Valuation Metrics
-            </h2>
-            <span id="fundamentals-badge" class="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-semibold">Real-Time S&P 500 Data</span>
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button id="toggle-sma50" class="toggle"><span class="toggle__swatch" style="background:#2f7d4f"></span>50 SMA</button>
+              <button id="toggle-sma200" class="toggle"><span class="toggle__swatch" style="background:#d08b1f"></span>200 SMA</button>
+              <button id="toggle-bollinger" class="toggle opacity-50"><span class="toggle__swatch" style="background:#2f6f86"></span>Bollinger</button>
+              <button id="toggle-volume" class="toggle"><span class="toggle__swatch" style="background:#b9c4b2"></span>Volume</button>
+            </div>
+            <div class="seg" role="group" aria-label="Chart style">
+              <button id="btn-chart-area" class="seg-btn is-active">Area</button>
+              <button id="btn-chart-candle" class="seg-btn">Candles</button>
+            </div>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
-            <div class="bg-paper-950/60 p-3.5 rounded-xl border border-paper-800/60 space-y-1">
-              <span class="text-paper-500 text-[11px]">Market Cap</span>
-              <p id="metric-market-cap" class="text-base font-bold text-paper-50">$3.64T</p>
-            </div>
-            <div class="bg-paper-950/60 p-3.5 rounded-xl border border-paper-800/60 space-y-1">
-              <span class="text-paper-500 text-[11px]">P/E Ratio (TTM)</span>
-              <p id="metric-pe" class="text-base font-bold text-paper-200">48.2x</p>
-            </div>
-            <div class="bg-paper-950/60 p-3.5 rounded-xl border border-paper-800/60 space-y-1">
-              <span class="text-paper-500 text-[11px]">Forward P/E 2026</span>
-              <p id="metric-fwd-pe" class="text-base font-bold text-moss-400">38.4x</p>
-            </div>
-            <div class="bg-paper-950/60 p-3.5 rounded-xl border border-paper-800/60 space-y-1">
-              <span class="text-paper-500 text-[11px]">EPS Growth 2026e</span>
-              <p id="metric-eps-growth" class="text-base font-bold text-emerald-400">+28.4%</p>
-            </div>
-            <div class="bg-paper-950/60 p-3.5 rounded-xl border border-paper-800/60 space-y-1">
-              <span class="text-paper-500 text-[11px]">Revenue YoY</span>
-              <p id="metric-rev-growth" class="text-base font-bold text-paper-200">+22.1%</p>
-            </div>
-            <div class="bg-paper-950/60 p-3.5 rounded-xl border border-paper-800/60 space-y-1">
-              <span class="text-paper-500 text-[11px]">Free Cash Flow</span>
-              <p id="metric-fcf" class="text-base font-bold text-paper-200">$18.4B</p>
-            </div>
-            <div class="bg-paper-950/60 p-3.5 rounded-xl border border-paper-800/60 space-y-1">
-              <span class="text-paper-500 text-[11px]">Beta (1Y)</span>
-              <p id="metric-beta" class="text-base font-bold text-paper-200">1.24</p>
-            </div>
-            <div class="bg-paper-950/60 p-3.5 rounded-xl border border-paper-800/60 space-y-1">
-              <span class="text-paper-500 text-[11px]">Analyst Target</span>
-              <p id="metric-target" class="text-base font-bold text-mint-400">$182.00 <span class="text-[10px] text-emerald-400">(+22%)</span></p>
+          <!-- OHLC readout -->
+          <div id="ohlc-readout-bar" class="flex items-center justify-between gap-3 flex-wrap text-[11.5px] font-mono bg-paper-sunk px-3.5 py-2 rounded-lg">
+            <span id="ohlc-date" class="font-bold text-moss-deep">Latest bar</span>
+            <div class="flex items-center gap-3.5 text-ink-soft flex-wrap">
+              <span>O <strong id="ohlc-open" class="text-ink font-semibold">$0.00</strong></span>
+              <span>H <strong id="ohlc-high" class="text-up font-semibold">$0.00</strong></span>
+              <span>L <strong id="ohlc-low" class="text-down font-semibold">$0.00</strong></span>
+              <span>C <strong id="ohlc-close" class="text-ink font-semibold">$0.00</strong></span>
+              <span>Vol <strong id="ohlc-vol" class="text-ink font-semibold">0M</strong></span>
             </div>
           </div>
-        </div>
 
+          <div class="relative w-full h-[360px]">
+            <canvas id="priceChart" role="img" aria-label="Price chart"></canvas>
+            <div id="chart-loader" class="hidden absolute inset-0 bg-white/75 flex items-center justify-center rounded-lg z-10">
+              <span class="flex items-center gap-2.5 px-4 py-2 bg-white rounded-full border border-line text-[12.5px] font-medium text-ink-soft shadow-card">
+                <svg class="animate-spin h-4 w-4 text-moss" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                Loading bars…
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- FUNDAMENTALS -->
+        <section class="card p-5 lg:p-6 space-y-4">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex items-center gap-2.5">
+              <span class="w-3 h-3 rounded-full bg-ochre shrink-0" aria-hidden="true"></span>
+              <h2 class="text-[15px] font-bold tracking-[-0.01em] text-ink">Fundamentals</h2>
+            </div>
+            <span id="fundamentals-badge" class="tag is-neutral">Reference data</span>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="card--quiet rounded-lg p-3.5">
+              <span class="block text-[10px] font-mono uppercase tracking-wider text-ink-mute mb-1">Market cap</span>
+              <p id="metric-market-cap" class="text-[17px] font-mono font-bold text-ink">$3.64T</p>
+            </div>
+            <div class="card--quiet rounded-lg p-3.5">
+              <span class="block text-[10px] font-mono uppercase tracking-wider text-ink-mute mb-1">P/E (TTM)</span>
+              <p id="metric-pe" class="text-[17px] font-mono font-bold text-ink">48.2x</p>
+            </div>
+            <div class="card--quiet rounded-lg p-3.5">
+              <span class="block text-[10px] font-mono uppercase tracking-wider text-ink-mute mb-1">Forward P/E</span>
+              <p id="metric-fwd-pe" class="text-[17px] font-mono font-bold text-ink">38.4x</p>
+            </div>
+            <div class="card--quiet rounded-lg p-3.5">
+              <span class="block text-[10px] font-mono uppercase tracking-wider text-ink-mute mb-1">EPS growth</span>
+              <p id="metric-eps-growth" class="text-[17px] font-mono font-bold text-up">+28.4%</p>
+            </div>
+            <div class="card--quiet rounded-lg p-3.5">
+              <span class="block text-[10px] font-mono uppercase tracking-wider text-ink-mute mb-1">Revenue YoY</span>
+              <p id="metric-rev-growth" class="text-[17px] font-mono font-bold text-ink">+22.1%</p>
+            </div>
+            <div class="card--quiet rounded-lg p-3.5">
+              <span class="block text-[10px] font-mono uppercase tracking-wider text-ink-mute mb-1">Free cash flow</span>
+              <p id="metric-fcf" class="text-[17px] font-mono font-bold text-ink">$18.4B</p>
+            </div>
+            <div class="card--quiet rounded-lg p-3.5">
+              <span class="block text-[10px] font-mono uppercase tracking-wider text-ink-mute mb-1">Beta (1Y)</span>
+              <p id="metric-beta" class="text-[17px] font-mono font-bold text-ink">1.24</p>
+            </div>
+            <div class="card--quiet rounded-lg p-3.5">
+              <span class="block text-[10px] font-mono uppercase tracking-wider text-ink-mute mb-1">Analyst target</span>
+              <p id="metric-target" class="text-[17px] font-mono font-bold text-ink">$182.00</p>
+            </div>
+          </div>
+        </section>
       </div>
 
-      <!-- RIGHT COLUMN: GENAI RESEARCH & SIGNALS (1 Col) -->
-      <div class="space-y-6">
+      <!-- Right: AI research -->
+      <section class="card card--tint p-5 lg:p-6 space-y-4 relative overflow-hidden">
+        <svg class="absolute -right-8 -top-8 w-28 h-28 pointer-events-none opacity-70" viewBox="0 0 100 100" aria-hidden="true">
+          <path d="M 100 0 A 100 100 0 0 1 0 100 L 0 0 Z" fill="#dceadf" />
+        </svg>
 
-        <!-- GENAI 2026 RESEARCH CARD -->
-        <div class="rounded-2xl bh-card bh-frame border-moss-600/50 p-5 shadow-md relative overflow-hidden space-y-4">
-          <!-- Ambient Glow Badge -->
-          <svg class="absolute -right-14 -top-14 w-28 h-28 pointer-events-none opacity-70 z-0" viewBox="0 0 200 200" aria-hidden="true">
-            <circle cx="100" cy="100" r="90" fill="#184627" />
-            <circle cx="100" cy="100" r="90" fill="none" stroke="#e4a238" stroke-width="2" stroke-dasharray="4 10" opacity="0.6" />
-          </svg>
-
-          <!-- Card Title Header -->
-          <div class="relative z-10 flex items-center justify-between pb-3 border-b border-paper-800/80">
-            <div class="flex items-center gap-2">
-              <div class="w-7 h-7 rounded-lg bg-moss-500/20 border border-moss-500/40 flex items-center justify-center text-moss-400">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-              </div>
-              <h2 class="font-display font-semibold uppercase tracking-wide text-paper-50 text-[15px]">GenAI Research Synthesis</h2>
+        <div class="relative z-10 space-y-4">
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="w-3 h-3 bg-pine shrink-0" style="clip-path:polygon(50% 0,100% 100%,0 100%)" aria-hidden="true"></span>
+              <h2 class="text-[15px] font-bold tracking-[-0.01em] text-ink">AI research</h2>
             </div>
-            <span id="ai-model-badge" class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-moss-500/10 text-moss-300 border border-moss-500/20">Claude Sonnet 5</span>
+            <span class="tag is-neutral">Sonnet&nbsp;5</span>
           </div>
 
-          <!-- Sentiment Gauge & Rating -->
-          <div class="bg-paper-950/80 p-3.5 rounded-xl border border-paper-800/80 flex items-center justify-between gap-3">
-            <div>
-              <span class="text-[11px] text-paper-500 font-sans uppercase tracking-wider block mb-0.5">2026 AI Conviction</span>
-              <span id="ai-sentiment-label" class="font-bold text-sm text-emerald-400">Strong Bullish Expansion</span>
+          <!-- Conviction -->
+          <div class="bg-white rounded-lg p-3.5 flex items-center justify-between gap-3 border border-line">
+            <div class="min-w-0">
+              <span class="block text-[10px] font-mono uppercase tracking-wider text-ink-mute mb-0.5">Conviction</span>
+              <span id="ai-sentiment-label" class="text-[13px] font-bold text-moss-deep">Bull thesis</span>
             </div>
-            <div class="flex items-center gap-2">
-              <div class="w-12 h-12 rounded-full border-2 border-emerald-500 flex items-center justify-center font-mono font-black text-sm text-paper-50 bg-emerald-500/10" id="ai-score-badge">
-                84
-              </div>
-            </div>
+            <div id="ai-score-badge" class="w-12 h-12 shrink-0 rounded-full border-2 border-moss flex items-center justify-center font-mono font-bold text-base text-moss-deep bg-moss-soft">84</div>
           </div>
 
-          <!-- Synthesis Prompt Focus Preset Selector -->
-          <div class="flex items-center justify-between gap-3 text-xs bg-paper-950/80 p-2.5 rounded-xl border border-paper-800/80">
-            <span class="text-paper-300 font-semibold flex items-center gap-1.5 font-mono">
-              <span class="w-2 h-2 rounded-full bg-moss-400"></span>
-              Focus:
-            </span>
-            <div class="relative flex-1 max-w-[210px]">
-              <select id="ai-preset-select" class="w-full appearance-none bg-paper-900 border border-paper-700/80 hover:border-moss-500/80 rounded-lg pl-3 pr-8 py-1.5 text-xs text-paper-100 font-semibold focus:outline-none focus:ring-2 focus:ring-moss-500/40 transition cursor-pointer">
-                <option value="General" class="bg-paper-900 text-paper-100 py-1.5">General 2026 Outlook</option>
-                <option value="Valuation" class="bg-paper-900 text-paper-100 py-1.5">Valuation & Cash Flow</option>
-                <option value="Earnings" class="bg-paper-900 text-paper-100 py-1.5">Earnings Catalyst 2026</option>
-                <option value="Technical" class="bg-paper-900 text-paper-100 py-1.5">Technical Breakout</option>
-              </select>
-              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-paper-400">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-              </div>
-            </div>
+          <!-- Focus -->
+          <div class="flex items-center gap-2.5">
+            <label for="ai-preset-select" class="text-[11px] font-mono uppercase tracking-wider text-ink-mute shrink-0">Focus</label>
+            <select id="ai-preset-select" class="flex-1 min-w-0 bg-white border border-line hover:border-moss rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium text-ink focus:outline-none focus:ring-2 focus:ring-moss/20 transition cursor-pointer">
+              <option value="General">General outlook</option>
+              <option value="Valuation">Valuation &amp; cash flow</option>
+              <option value="Earnings">Earnings catalyst</option>
+              <option value="Technical">Technical breakout</option>
+            </select>
           </div>
 
-          <!-- Research Note Container -->
-          <div class="bg-paper-950/70 p-4.5 rounded-xl border border-paper-800/70 space-y-3.5 shadow-inner">
-            <div id="ai-note-text" class="text-xs text-paper-200 leading-relaxed font-sans space-y-3">
-              Loading GenAI 2026 financial analysis...
-            </div>
+          <!-- Note -->
+          <div class="bg-white rounded-lg p-4 border border-line max-h-[380px] overflow-y-auto">
+            <div id="ai-note-text" class="ai-prose">Loading analysis…</div>
           </div>
 
-          <!-- Key 2026 Catalysts Bullet List -->
+          <!-- Drivers -->
           <div class="space-y-2">
-            <span class="text-[11px] font-bold text-paper-400 uppercase tracking-wider font-mono">Key 2026 Catalysts:</span>
-            <ul id="ai-drivers-list" class="space-y-2 text-xs text-paper-300 font-sans">
-              <!-- Dynamically populated -->
-            </ul>
+            <span class="eyebrow">Key catalysts</span>
+            <ul id="ai-drivers-list" class="list-none p-0 m-0"></ul>
           </div>
 
-          <!-- Action Button: Re-Generate Synthesis -->
-          <button id="btn-regenerate-ai" class="w-full py-2.5 px-4 rounded-xl bg-moss-600 hover:bg-moss-500 text-paper-50 font-semibold text-xs transition shadow-lg shadow-moss-600/20 flex items-center justify-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-            Re-Synthesize Report
+          <button id="btn-regenerate-ai" class="w-full py-2.5 px-4 rounded-full bg-pine hover:bg-moss-deep text-ink-invert font-semibold text-[12.5px] transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Regenerate
           </button>
         </div>
-
-        <!-- TECHNICAL INDICATORS SIGNAL RADAR -->
-        <div class="rounded-2xl bh-card p-5 shadow-md space-y-4 font-mono text-xs">
-          <div class="flex items-center justify-between pb-3 border-b border-paper-800/60">
-            <h2 class="font-display font-semibold uppercase tracking-wide text-paper-50 text-[15px] font-sans flex items-center gap-2">
-              <svg class="w-5 h-5 text-mint-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-              Technical Signal Radar
-            </h2>
-            <span class="text-[10px] text-paper-400">1D Interval</span>
-          </div>
-
-          <div class="space-y-3">
-            <!-- RSI Meter -->
-            <div class="bg-paper-950/60 p-3 rounded-xl border border-paper-800/60 space-y-1.5">
-              <div class="flex justify-between items-center text-paper-300">
-                <span>RSI (14)</span>
-                <span id="radar-rsi-val" class="font-bold text-moss-400">62.4</span>
-              </div>
-              <div class="w-full h-2 bg-paper-800 rounded-full overflow-hidden flex">
-                <div id="radar-rsi-bar" class="h-full bg-gradient-to-r from-mint-500 via-moss-500 to-clay-500" style="width: 62.4%"></div>
-              </div>
-              <span id="radar-rsi-status" class="text-[10px] text-paper-400 block text-right">Neutral / Slightly Bullish</span>
-            </div>
-
-            <!-- MACD -->
-            <div class="bg-paper-950/60 p-3 rounded-xl border border-paper-800/60 flex items-center justify-between">
-              <div>
-                <span class="text-paper-400 text-[11px] block">MACD Signal</span>
-                <span id="radar-macd-val" class="font-bold text-emerald-400">+2.48 Crossover</span>
-              </div>
-              <span class="px-2 py-1 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold">BUY</span>
-            </div>
-
-            <!-- Moving Average Trend -->
-            <div class="bg-paper-950/60 p-3 rounded-xl border border-paper-800/60 flex items-center justify-between">
-              <div>
-                <span class="text-paper-400 text-[11px] block">50 / 200 SMA</span>
-                <span id="radar-ma-trend" class="font-bold text-paper-200">Golden Cross Active</span>
-              </div>
-              <span class="px-2 py-1 rounded bg-moss-500/10 border border-moss-500/20 text-moss-300 text-[10px] font-bold">BULLISH</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
+      </section>
     </div>
 
-    <!-- SEPARATE TECHNICAL INDICATORS SECTIONS FOR SELECTED COMPANY -->
-    <div class="rounded-2xl bh-card p-5 shadow-md space-y-5">
-      <!-- Section Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-paper-800/60">
+    <!-- TECHNICAL INDICATORS -->
+    <section class="card p-5 lg:p-6 space-y-5">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl bg-mint-500/10 border border-mint-500/30 flex items-center justify-center text-mint-400">
-            <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-          </div>
-          <div>
-            <h2 class="font-display font-semibold uppercase tracking-wide text-paper-50 text-[15px] flex items-center gap-2">
-              Technical Indicators Breakdown
-              <span id="tech-ticker-badge" class="text-xs font-mono px-2 py-0.5 rounded-md bg-moss-500/10 text-moss-300 border border-moss-500/20 font-bold">NVDA</span>
-            </h2>
-            <p class="text-xs text-paper-400 font-sans">Dedicated RSI, MACD, Moving Averages, and Volatility indicators for selected company</p>
-          </div>
+          <span class="w-3 h-3 bg-clay shrink-0" style="clip-path:polygon(0 0,100% 0,0 100%)" aria-hidden="true"></span>
+          <h2 class="text-[15px] font-bold tracking-[-0.01em] text-ink">Technical indicators</h2>
+          <span id="tech-ticker-badge" class="tag is-neutral">NVDA</span>
         </div>
-        <div class="flex items-center gap-2 text-xs font-mono">
-          <span class="px-2.5 py-1 rounded-lg bg-paper-950 border border-paper-800 text-paper-300">Daily Candles (1D)</span>
-        </div>
+        <span class="text-[11px] font-mono text-ink-mute">Daily interval</span>
       </div>
 
-      <!-- 4 SEPARATE TECHNICAL INDICATOR CARDS -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
 
-        <!-- 1. RSI (RELATIVE STRENGTH INDEX) SECTION CARD -->
-        <div class="bg-paper-950/70 p-4 rounded-xl border border-paper-800/70 flex flex-col justify-between space-y-4 shadow-md">
+        <!-- RSI -->
+        <article class="card--quiet rounded-xl2 p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-ink-soft">RSI (14)</span>
+            <span id="rsi-badge" class="tag is-flat">NEUTRAL</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-2">
+            <span id="rsi-value" class="stat-lg text-ink">62.4</span>
+            <span id="rsi-status-text" class="text-[11.5px] font-medium text-ink-mute text-right">Slightly bullish</span>
+          </div>
+          <div class="space-y-1">
+            <div class="w-full h-2 bg-white rounded-full overflow-hidden border border-line">
+              <div id="rsi-bar" class="meter__fill is-mid" style="width:62.4%"></div>
+            </div>
+            <div class="flex justify-between text-[9.5px] font-mono text-ink-mute">
+              <span>0</span><span>30</span><span>70</span><span>100</span>
+            </div>
+          </div>
+          <p id="rsi-comment" class="text-[11.5px] leading-snug text-ink-mute mt-auto">Healthy momentum without entering overbought territory.</p>
+          <div class="flex justify-between text-[10px] font-mono text-ink-mute pt-2 border-t border-line">
+            <span>To OB <strong id="rsi-dist-overbought" class="text-ink-soft">7.6 pts</strong></span>
+            <span>To OS <strong id="rsi-dist-oversold" class="text-ink-soft">32.4 pts</strong></span>
+          </div>
+        </article>
+
+        <!-- MACD -->
+        <article class="card--quiet rounded-xl2 p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-ink-soft">MACD</span>
+            <span id="macd-badge" class="tag is-up">BULLISH</span>
+          </div>
+          <div class="flex items-baseline justify-between gap-2">
+            <span id="macd-value" class="stat-lg is-up">+2.48</span>
+            <span id="macd-status-text" class="text-[11.5px] font-medium text-ink-mute text-right">Bullish crossover</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 bg-white rounded-lg p-2.5 border border-line">
+            <div>
+              <span class="block text-[9px] font-mono uppercase text-ink-mute">MACD</span>
+              <span id="macd-line-val" class="num text-[12px] text-ink">+3.20</span>
+            </div>
+            <div>
+              <span class="block text-[9px] font-mono uppercase text-ink-mute">Signal</span>
+              <span id="macd-signal-val" class="num text-[12px] text-ink-soft">+0.72</span>
+            </div>
+            <div>
+              <span class="block text-[9px] font-mono uppercase text-ink-mute">Hist</span>
+              <span id="macd-hist-val" class="num is-up text-[12px]">+2.48</span>
+            </div>
+          </div>
+          <p id="macd-comment" class="text-[11.5px] leading-snug text-ink-mute mt-auto">MACD sits above its signal line, confirming upward momentum.</p>
+        </article>
+
+        <!-- MOVING AVERAGES -->
+        <article class="card--quiet rounded-xl2 p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-ink-soft">Moving averages</span>
+            <span id="ma-trend-badge" class="tag is-up">GOLDEN CROSS</span>
+          </div>
           <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-mono font-bold text-paper-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-moss-400"></span>
-                RSI (14 Period)
+            <div class="flex justify-between items-center bg-white rounded-lg px-3 py-2 border border-line">
+              <span class="text-[11.5px] text-ink-mute">50-day</span>
+              <span class="text-right">
+                <span id="ma-sma50-val" class="num text-[13px] text-ink">$139.10</span>
+                <span id="ma-sma50-diff" class="num-sm is-up block">+6.6% vs 50D</span>
               </span>
-              <span id="rsi-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-moss-500/10 text-moss-300 border border-moss-500/20">NEUTRAL</span>
             </div>
-
-            <!-- RSI Value & Status -->
-            <div class="flex items-baseline justify-between pt-1">
-              <div class="text-2xl font-mono font-extrabold text-paper-50" id="rsi-value">62.4</div>
-              <span id="rsi-status-text" class="text-xs font-sans font-medium text-moss-300">Slightly Bullish</span>
-            </div>
-
-            <!-- RSI Visual Gauge Bar (0-100 Spectrum) -->
-            <div class="space-y-1 pt-1">
-              <div class="flex justify-between text-[10px] font-mono text-paper-500">
-                <span>0 (Oversold)</span>
-                <span>30</span>
-                <span>70</span>
-                <span>100 (Overbought)</span>
-              </div>
-              <div class="relative w-full h-2.5 bg-paper-800 rounded-full overflow-hidden flex">
-                <div id="rsi-bar" class="h-full bg-gradient-to-r from-emerald-500 via-moss-500 to-clay-500 transition-all duration-500" style="width: 62.4%"></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="pt-2 border-t border-paper-800/40 space-y-1 text-[11px]">
-            <p id="rsi-comment" class="text-paper-400 leading-snug">RSI indicates healthy buying momentum without entering overbought territory (>70).</p>
-            <div class="flex justify-between text-[10px] font-mono text-paper-500 pt-1">
-              <span>To Overbought: <strong id="rsi-dist-overbought" class="text-paper-300">7.6 pts</strong></span>
-              <span>To Oversold: <strong id="rsi-dist-oversold" class="text-paper-300">32.4 pts</strong></span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 2. MACD (MOVING AVERAGE CONVERGENCE DIVERGENCE) SECTION CARD -->
-        <div class="bg-paper-950/70 p-4 rounded-xl border border-paper-800/70 flex flex-col justify-between space-y-4 shadow-md">
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-mono font-bold text-paper-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                MACD (12, 26, 9)
+            <div class="flex justify-between items-center bg-white rounded-lg px-3 py-2 border border-line">
+              <span class="text-[11.5px] text-ink-mute">200-day</span>
+              <span class="text-right">
+                <span id="ma-sma200-val" class="num text-[13px] text-ink">$118.40</span>
+                <span id="ma-sma200-diff" class="num-sm is-up block">+25.2% vs 200D</span>
               </span>
-              <span id="macd-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">BULLISH</span>
-            </div>
-
-            <!-- MACD Histogram Main Value -->
-            <div class="flex items-baseline justify-between pt-1">
-              <div class="text-2xl font-mono font-extrabold text-emerald-400" id="macd-value">+2.48</div>
-              <span id="macd-status-text" class="text-xs font-sans font-medium text-emerald-300">Bullish Crossover</span>
-            </div>
-
-            <!-- MACD Lines Breakdown Grid -->
-            <div class="grid grid-cols-3 gap-1.5 text-[11px] font-mono bg-paper-900/60 p-2 rounded-lg border border-paper-800/50">
-              <div>
-                <span class="text-paper-500 text-[9px] block">MACD</span>
-                <span id="macd-line-val" class="font-bold text-paper-200">+3.20</span>
-              </div>
-              <div>
-                <span class="text-paper-500 text-[9px] block">Signal</span>
-                <span id="macd-signal-val" class="font-bold text-paper-400">+0.72</span>
-              </div>
-              <div>
-                <span class="text-paper-500 text-[9px] block">Hist</span>
-                <span id="macd-hist-val" class="font-bold text-emerald-400">+2.48</span>
-              </div>
             </div>
           </div>
+          <p id="ma-comment" class="text-[11.5px] leading-snug text-ink-mute mt-auto">Trading above both key averages in a structural uptrend.</p>
+        </article>
 
-          <div class="pt-2 border-t border-paper-800/40 space-y-1 text-[11px]">
-            <p id="macd-comment" class="text-paper-400 leading-snug">MACD line sits above signal line, confirming active upward momentum.</p>
+        <!-- BOLLINGER -->
+        <article class="card--quiet rounded-xl2 p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-mono font-bold uppercase tracking-wider text-ink-soft">Bollinger (20,2)</span>
+            <span id="bb-pos-badge" class="tag is-accent">UPPER</span>
           </div>
-        </div>
-
-        <!-- 3. MOVING AVERAGES & TREND SECTION CARD -->
-        <div class="bg-paper-950/70 p-4 rounded-xl border border-paper-800/70 flex flex-col justify-between space-y-4 shadow-md">
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-mono font-bold text-paper-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-ochre-400"></span>
-                Moving Averages
-              </span>
-              <span id="ma-trend-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-ochre-500/10 text-ochre-300 border border-ochre-500/20">GOLDEN CROSS</span>
+          <div class="grid grid-cols-3 gap-2 bg-white rounded-lg p-2.5 border border-line">
+            <div>
+              <span class="block text-[9px] font-mono uppercase text-ink-mute">Lower</span>
+              <span id="bb-lower-val" class="num text-[12px] text-ink-soft">$131.80</span>
             </div>
-
-            <!-- Moving Average Readouts -->
-            <div class="space-y-2 pt-1 font-mono text-xs">
-              <div class="flex justify-between items-center bg-paper-900/60 p-2 rounded-lg border border-paper-800/50">
-                <span class="text-paper-400">50-Day SMA:</span>
-                <div class="text-right">
-                  <span id="ma-sma50-val" class="font-bold text-moss-300">$139.10</span>
-                  <span id="ma-sma50-diff" class="text-[10px] text-emerald-400 block">+6.6%</span>
-                </div>
-              </div>
-              <div class="flex justify-between items-center bg-paper-900/60 p-2 rounded-lg border border-paper-800/50">
-                <span class="text-paper-400">200-Day SMA:</span>
-                <div class="text-right">
-                  <span id="ma-sma200-val" class="font-bold text-ochre-300">$118.40</span>
-                  <span id="ma-sma200-diff" class="text-[10px] text-emerald-400 block">+25.2%</span>
-                </div>
-              </div>
+            <div>
+              <span class="block text-[9px] font-mono uppercase text-ink-mute">Mid</span>
+              <span id="bb-mid-val" class="num text-[12px] text-ink">$142.10</span>
+            </div>
+            <div>
+              <span class="block text-[9px] font-mono uppercase text-ink-mute">Upper</span>
+              <span id="bb-upper-val" class="num text-[12px] text-ink-soft">$152.40</span>
             </div>
           </div>
-
-          <div class="pt-2 border-t border-paper-800/40 space-y-1 text-[11px]">
-            <p id="ma-comment" class="text-paper-400 leading-snug">Stock trades comfortably above both 50D and 200D moving averages in a structural bull trend.</p>
-          </div>
-        </div>
-
-        <!-- 4. BOLLINGER BANDS & VOLATILITY SECTION CARD -->
-        <div class="bg-paper-950/70 p-4 rounded-xl border border-paper-800/70 flex flex-col justify-between space-y-4 shadow-md">
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-mono font-bold text-paper-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span class="w-2 h-2 rounded-full bg-sage-400"></span>
-                Bollinger Bands (20, 2)
-              </span>
-              <span id="bb-pos-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sage-500/10 text-sage-300 border border-sage-500/20">UPPER CHANNEL</span>
+          <div class="space-y-1">
+            <div class="flex justify-between text-[10px] font-mono text-ink-mute">
+              <span>Lower</span>
+              <span id="bb-pct-b" class="font-bold text-ink-soft">78% %B</span>
+              <span>Upper</span>
             </div>
-
-            <!-- Bollinger Bands Values Grid -->
-            <div class="grid grid-cols-3 gap-1.5 text-[11px] font-mono bg-paper-900/60 p-2 rounded-lg border border-paper-800/50">
-              <div>
-                <span class="text-paper-500 text-[9px] block">Lower</span>
-                <span id="bb-lower-val" class="font-bold text-paper-300">$131.80</span>
-              </div>
-              <div>
-                <span class="text-paper-500 text-[9px] block">Mid (20)</span>
-                <span id="bb-mid-val" class="font-bold text-sage-300">$142.10</span>
-              </div>
-              <div>
-                <span class="text-paper-500 text-[9px] block">Upper</span>
-                <span id="bb-upper-val" class="font-bold text-sage-400">$152.40</span>
-              </div>
-            </div>
-
-            <!-- Band Position Bar (%B) -->
-            <div class="space-y-1 pt-1">
-              <div class="flex justify-between text-[10px] font-mono text-paper-500">
-                <span>Lower Band</span>
-                <span id="bb-pct-b" class="text-sage-300 font-bold">78% (%B)</span>
-                <span>Upper Band</span>
-              </div>
-              <div class="relative w-full h-2 bg-paper-800 rounded-full overflow-hidden">
-                <div id="bb-pct-bar" class="h-full bg-gradient-to-r from-paper-600 via-sage-500 to-moss-400 transition-all duration-500" style="width: 78%"></div>
-              </div>
+            <div class="w-full h-2 bg-white rounded-full overflow-hidden border border-line">
+              <div id="bb-pct-bar" class="meter__fill is-band" style="width:78%"></div>
             </div>
           </div>
-
-          <div class="pt-2 border-t border-paper-800/40 space-y-1 text-[11px]">
-            <p id="bb-comment" class="text-paper-400 leading-snug">Price is expanding towards upper band with 14.5% volatility channel width.</p>
-          </div>
-        </div>
-
+          <p id="bb-comment" class="text-[11.5px] leading-snug text-ink-mute mt-auto">Price expanding toward the upper band.</p>
+        </article>
       </div>
-    </div>
+    </section>
 
-    <!-- BOTTOM ROW: 2026 MARKET NEWS & CATALYSTS FEED -->
-    <div class="rounded-2xl bh-card p-5 shadow-md space-y-4">
-      <div class="flex items-center justify-between pb-3 border-b border-paper-800/60">
-        <h2 class="font-display font-semibold uppercase tracking-wide text-paper-50 text-[15px] flex items-center gap-2">
-          <svg class="w-5 h-5 text-ochre-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
-          2026 Market Intelligence & Catalysts
-        </h2>
-        <span class="text-xs font-mono text-paper-400">Live Bloomberg & Reuters Feed</span>
+    <!-- NEWS -->
+    <section class="card p-5 lg:p-6 space-y-4">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2.5">
+          <span class="w-3 h-3 rounded-full border-[3px] border-moss shrink-0" aria-hidden="true"></span>
+          <h2 class="text-[15px] font-bold tracking-[-0.01em] text-ink">Market intelligence</h2>
+        </div>
+        <span class="text-[11px] font-mono text-ink-mute">Headlines &amp; catalysts</span>
       </div>
-
-      <div id="news-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- News Cards populated by JS -->
-      </div>
-    </div>
+      <div id="news-container" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+    </section>
 
   </main>
 
   <!-- FOOTER -->
-  <footer class="border-t border-paper-800/60 bg-paper-950 py-6 px-4 lg:px-8 text-center text-xs text-paper-500 font-mono space-y-2">
-    <div class="flex items-center justify-center gap-4 text-paper-400">
-      <span>Aura by JLMG Financial Intelligence &copy; 2026</span>
-      <span>•</span>
-      <span>NewsAPI Live Headlines</span>
-      <span>•</span>
-      <span>Twelve Data</span>
-      <span>•</span>
-      <span>OpenRouter AI</span>
+  <footer class="border-t border-line bg-paper-sunk py-6 px-4 lg:px-8">
+    <div class="max-w-[1400px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-[11.5px] text-ink-mute">
+      <span>Aura by JLMG · Financial intelligence © 2026</span>
+      <span class="font-mono">NewsAPI · Twelve Data · OpenRouter</span>
+      <span class="text-moss-deep font-medium">🍺 All rights and beer reserved</span>
     </div>
-    <p>Financial intelligence powered by live NewsAPI headlines, S&P 500 analytics, and multi-model LLM research synthesis.</p>
-    <p class="text-moss-400/90 font-semibold text-xs pt-1">🍺 All rights and beer reserved by JLMG</p>
   </footer>
 
-  <!-- API CREDENTIALS SLIDE-OVER MODAL / DRAWER -->
-  <div id="api-modal" class="hidden fixed inset-0 z-50 overflow-hidden bg-paper-950/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-paper-900 border border-paper-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative space-y-5">
-      <!-- Close Button -->
-      <button id="btn-close-api-modal" class="absolute top-4 right-4 p-1 rounded-lg text-paper-400 hover:text-paper-50 hover:bg-paper-800 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+  <!-- TOAST -->
+  <div id="toast-region" role="status" aria-live="polite"></div>
+
+  <!-- API KEYS MODAL -->
+  <div id="api-modal" class="hidden fixed inset-0 z-50 bg-pine/25 backdrop-blur-[2px] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="api-modal-title">
+    <div class="bg-white border border-line rounded-xl2 max-w-md w-full p-6 shadow-lift relative space-y-5">
+      <button id="btn-close-api-modal" aria-label="Close" class="absolute top-4 right-4 p-1 rounded-lg text-ink-mute hover:text-ink hover:bg-paper-sunk transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
 
-      <div class="space-y-1">
-        <h3 class="text-lg font-bold text-paper-50 flex items-center gap-2">
-          <svg class="w-5 h-5 text-moss-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 0121 9z"/></svg>
-          API Keys & Credentials
-        </h3>
-        <p class="text-xs text-paper-400">Configure your keys to enable live NewsAPI streams, market feeds, and LLM synthesis.</p>
+      <div class="space-y-1 pr-8">
+        <h3 id="api-modal-title" class="text-lg font-bold tracking-[-0.02em] text-ink">API keys</h3>
+        <p class="text-[12.5px] text-ink-mute">Stored in your browser only. Never sent anywhere but the provider.</p>
       </div>
 
       <form id="api-keys-form" class="space-y-4">
         <div class="space-y-1.5">
-          <label for="newsapi-key" class="text-xs font-mono font-semibold text-paper-300 block uppercase tracking-wider flex items-center justify-between">
-            <span>NewsAPI Key</span>
-            <span class="text-[10px] text-mint-400 lowercase font-normal">(Live Market News)</span>
-          </label>
-          <input 
-            id="newsapi-key" 
-            name="newsapi-key" 
-            type="password" 
-            placeholder="NewsAPI key..." 
-            class="w-full px-3.5 py-2.5 text-xs bg-paper-950 border border-paper-800 rounded-xl text-paper-100 placeholder-paper-600 focus:outline-none focus:border-moss-500 font-mono"
-          />
-          <p class="text-[11px] text-paper-500">Fetches live global stock market headlines and company catalysts. Get key at <a href="https://newsapi.org" target="_blank" class="text-moss-400 hover:underline">newsapi.org</a>.</p>
+          <label for="newsapi-key" class="block text-[11px] font-mono font-semibold uppercase tracking-wider text-ink-soft">NewsAPI</label>
+          <input id="newsapi-key" name="newsapi-key" type="password" placeholder="Live market headlines" class="w-full px-3.5 py-2.5 text-[12.5px] bg-paper-sunk border border-line rounded-lg text-ink placeholder-ink-mute focus:outline-none focus:border-moss focus:ring-2 focus:ring-moss/20 font-mono transition" />
+          <p class="text-[11px] text-ink-mute">Free key at <a href="https://newsapi.org" target="_blank" rel="noopener noreferrer" class="text-moss underline">newsapi.org</a></p>
         </div>
 
         <div class="space-y-1.5">
-          <label for="twelvedata-key" class="text-xs font-mono font-semibold text-paper-300 block uppercase tracking-wider">Twelve Data API Key</label>
-          <input 
-            id="twelvedata-key" 
-            name="twelvedata-key" 
-            type="password" 
-            placeholder="Twelve Data key (Optional for live bars)" 
-            class="w-full px-3.5 py-2.5 text-xs bg-paper-950 border border-paper-800 rounded-xl text-paper-100 placeholder-paper-600 focus:outline-none focus:border-moss-500 font-mono"
-          />
-          <p class="text-[11px] text-paper-500">Free plan covers US stocks & ETFs. Get key at <a href="https://twelvedata.com" target="_blank" class="text-moss-400 hover:underline">twelvedata.com</a>.</p>
+          <label for="twelvedata-key" class="block text-[11px] font-mono font-semibold uppercase tracking-wider text-ink-soft">Twelve Data</label>
+          <input id="twelvedata-key" name="twelvedata-key" type="password" placeholder="Live price bars" class="w-full px-3.5 py-2.5 text-[12.5px] bg-paper-sunk border border-line rounded-lg text-ink placeholder-ink-mute focus:outline-none focus:border-moss focus:ring-2 focus:ring-moss/20 font-mono transition" />
+          <p class="text-[11px] text-ink-mute">Without this, the chart shows a generated model series. Free key at <a href="https://twelvedata.com" target="_blank" rel="noopener noreferrer" class="text-moss underline">twelvedata.com</a></p>
         </div>
 
         <div class="space-y-1.5">
-          <label for="openrouter-key" class="text-xs font-mono font-semibold text-paper-300 block uppercase tracking-wider">OpenRouter API Key</label>
-          <input 
-            id="openrouter-key" 
-            name="openrouter-key" 
-            type="password" 
-            placeholder="sk-or-v1-..." 
-            class="w-full px-3.5 py-2.5 text-xs bg-paper-950 border border-paper-800 rounded-xl text-paper-100 placeholder-paper-600 focus:outline-none focus:border-moss-500 font-mono"
-          />
-          <p class="text-[11px] text-paper-500">Unlocks Claude Sonnet 5 / DeepSeek financial reasoning. Saved locally in browser storage.</p>
+          <label for="openrouter-key" class="block text-[11px] font-mono font-semibold uppercase tracking-wider text-ink-soft">OpenRouter</label>
+          <input id="openrouter-key" name="openrouter-key" type="password" placeholder="sk-or-v1-…" class="w-full px-3.5 py-2.5 text-[12.5px] bg-paper-sunk border border-line rounded-lg text-ink placeholder-ink-mute focus:outline-none focus:border-moss focus:ring-2 focus:ring-moss/20 font-mono transition" />
+          <p class="text-[11px] text-ink-mute">Unlocks live LLM research synthesis.</p>
         </div>
 
-        <div class="pt-2 flex items-center justify-end gap-3">
-          <button type="button" id="btn-cancel-api-modal" class="px-4 py-2 rounded-xl text-xs font-medium bg-paper-800 hover:bg-paper-700 text-paper-300 transition">Cancel</button>
-          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-bold bg-moss-600 hover:bg-moss-500 text-paper-50 transition shadow-lg shadow-moss-600/30">Save Credentials</button>
+        <div class="pt-1 flex items-center justify-end gap-2.5">
+          <button type="button" id="btn-cancel-api-modal" class="px-4 py-2 rounded-full text-[12.5px] font-medium text-ink-soft hover:bg-paper-sunk transition">Cancel</button>
+          <button type="submit" class="px-5 py-2 rounded-full text-[12.5px] font-bold bg-pine hover:bg-moss-deep text-ink-invert transition">Save</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- S&P 500 DIRECTORY MODAL -->
-  <div id="sp500-modal" class="hidden fixed inset-0 z-50 overflow-hidden bg-paper-950/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="bg-paper-900 border border-paper-800 rounded-2xl max-w-4xl w-full h-[85vh] flex flex-col p-6 shadow-2xl relative space-y-4">
-      <!-- Header -->
-      <div class="flex items-center justify-between pb-3 border-b border-paper-800">
-        <div>
-          <h3 class="text-lg font-bold text-paper-50 flex items-center gap-2">
-            <svg class="w-5 h-5 text-moss-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-            S&P 500 Index Constituent Directory
-          </h3>
-          <p class="text-xs text-paper-400">Search, filter by sector, and select any S&P 500 company for instant 2026 quantitative analysis.</p>
+  <!-- DIRECTORY MODAL -->
+  <div id="sp500-modal" class="hidden fixed inset-0 z-50 bg-pine/25 backdrop-blur-[2px] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="sp500-modal-title">
+    <div class="bg-white border border-line rounded-xl2 max-w-5xl w-full h-[85vh] flex flex-col p-6 shadow-lift relative gap-4">
+      <div class="flex items-start justify-between gap-4">
+        <div class="space-y-0.5 pr-8">
+          <h3 id="sp500-modal-title" class="text-lg font-bold tracking-[-0.02em] text-ink">S&amp;P 500 directory</h3>
+          <p class="text-[12.5px] text-ink-mute">Filter by symbol, name or sector, then select a company to analyse.</p>
         </div>
-        <button id="btn-close-sp500-modal" class="p-1 rounded-lg text-paper-400 hover:text-paper-50 hover:bg-paper-800 transition">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        <button id="btn-close-sp500-modal" aria-label="Close" class="p-1 rounded-lg text-ink-mute hover:text-ink hover:bg-paper-sunk transition shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
 
-      <!-- Controls & Filter Bar -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <input 
-          id="sp500-modal-search" 
-          type="text" 
-          placeholder="Filter S&P 500 by Symbol, Name or Sector..." 
-          class="w-full px-3.5 py-2 text-xs bg-paper-950 border border-paper-800 rounded-xl text-paper-100 placeholder-paper-500 focus:outline-none focus:border-moss-500 font-mono"
-        />
-        <select id="sp500-modal-sector" class="w-full px-3.5 py-2 text-xs bg-paper-950 border border-paper-800 rounded-xl text-paper-300 focus:outline-none focus:border-moss-500 font-mono">
-          <option value="ALL">All Sectors</option>
-          <option value="Aerospace & Space Tech">Aerospace & Space Tech</option>
+        <label for="sp500-modal-search" class="sr-only">Filter companies</label>
+        <input id="sp500-modal-search" type="text" placeholder="Filter…" class="w-full px-3.5 py-2 text-[12.5px] bg-paper-sunk border border-line rounded-lg text-ink placeholder-ink-mute focus:outline-none focus:border-moss focus:ring-2 focus:ring-moss/20 font-mono transition" />
+        <label for="sp500-modal-sector" class="sr-only">Filter by sector</label>
+        <select id="sp500-modal-sector" class="w-full px-3.5 py-2 text-[12.5px] bg-paper-sunk border border-line rounded-lg text-ink-soft focus:outline-none focus:border-moss focus:ring-2 focus:ring-moss/20 font-mono transition">
+          <option value="ALL">All sectors</option>
           <option value="Information Technology">Information Technology</option>
           <option value="Communication Services">Communication Services</option>
           <option value="Consumer Discretionary">Consumer Discretionary</option>
@@ -789,28 +597,25 @@
           <option value="Materials">Materials</option>
           <option value="Real Estate">Real Estate</option>
         </select>
-        <div class="text-xs font-mono text-paper-400 flex items-center justify-end px-2">
-          Showing <span id="sp500-modal-count" class="font-bold text-moss-400 mx-1">0</span> companies
+        <div class="text-[12.5px] font-mono text-ink-mute flex items-center md:justify-end">
+          <span id="sp500-modal-count" class="font-bold text-moss-deep mr-1">0</span> companies
         </div>
       </div>
 
-      <!-- Table Container -->
-      <div class="flex-1 overflow-y-auto border border-paper-800/80 rounded-xl bg-paper-950/50">
-        <table class="w-full text-left text-xs font-mono">
-          <thead class="sticky top-0 bg-paper-900 border-b border-paper-800 text-paper-400 uppercase text-[10px] tracking-wider z-10">
-            <tr>
-              <th class="p-3">Symbol / Name</th>
-              <th class="p-3">Sector</th>
-              <th class="p-3 text-right">Price</th>
-              <th class="p-3 text-right">Market Cap</th>
-              <th class="p-3 text-right">P/E</th>
-              <th class="p-3 text-right">Target</th>
-              <th class="p-3 text-center">Rating</th>
+      <div class="flex-1 overflow-y-auto border border-line rounded-xl2">
+        <table class="w-full text-left border-collapse">
+          <thead class="sticky top-0 bg-paper-sunk z-10">
+            <tr class="text-[10px] font-mono uppercase tracking-wider text-ink-mute">
+              <th scope="col" class="px-3 py-2.5 font-semibold">Symbol / name</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold">Sector</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold text-right">Price</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold text-right">Cap</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold text-right">P/E</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold text-right">Target</th>
+              <th scope="col" class="px-3 py-2.5 font-semibold text-center">Rating</th>
             </tr>
           </thead>
-          <tbody id="sp500-modal-tbody" class="divide-y divide-paper-800/40">
-            <!-- Populated by JS -->
-          </tbody>
+          <tbody id="sp500-modal-tbody"></tbody>
         </table>
       </div>
     </div>

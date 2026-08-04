@@ -6,14 +6,26 @@ import {
   getCompanyFundamentals,
   getAiResearchSynthesis,
   get2026MarketNews,
-  formatMarkdownToHtml
+  formatMarkdownToHtml,
+  escapeHtml,
+  getLastDataSource
 } from './src/data.js';
 import { searchSp500Companies, SP500_COMPANIES } from './src/sp500.js';
 
+/**
+ * Opening ticker, in priority order: ?symbol= in the URL, then the last one viewed,
+ * then the default. Makes a view shareable and bookmarkable.
+ */
+function resolveInitialTicker() {
+  const fromUrl = new URLSearchParams(window.location.search).get('symbol');
+  const candidate = (fromUrl || localStorage.getItem('aura_last_ticker') || 'NVDA').toUpperCase();
+  return /^[A-Z.\-]{1,8}$/.test(candidate) ? candidate : 'NVDA';
+}
+
 // APPLICATION STATE
 const state = {
-  ticker: 'NVDA',
-  timeframe: '3M',
+  ticker: resolveInitialTicker(),
+  timeframe: localStorage.getItem('aura_timeframe') || '3M',
   chartStyle: 'area', // 'area' or 'candles'
   priceData: [],
   metrics: null,
@@ -93,12 +105,7 @@ const el = {
   aiPresetSelect: document.getElementById('ai-preset-select'),
   btnRegenerateAi: document.getElementById('btn-regenerate-ai'),
 
-  // Technical Radar & Dedicated Sections
-  radarRsiVal: document.getElementById('radar-rsi-val'),
-  radarRsiBar: document.getElementById('radar-rsi-bar'),
-  radarRsiStatus: document.getElementById('radar-rsi-status'),
-  radarMacdVal: document.getElementById('radar-macd-val'),
-  radarMaTrend: document.getElementById('radar-ma-trend'),
+  // Technical indicator cards
   techTickerBadge: document.getElementById('tech-ticker-badge'),
   // RSI Card
   rsiBadge: document.getElementById('rsi-badge'),
@@ -147,6 +154,12 @@ const el = {
   apiStatusLabel: document.getElementById('api-status-label'),
   fundamentalsBadge: document.getElementById('fundamentals-badge'),
   btnRefresh: document.getElementById('btn-refresh'),
+  toastRegion: document.getElementById('toast-region'),
+  dataSourceBadge: document.getElementById('data-source-badge'),
+  btnWatch: document.getElementById('btn-watch'),
+  watchlist: document.getElementById('watchlist'),
+  watchlistWrap: document.getElementById('watchlist-wrap'),
+  btnExport: document.getElementById('btn-export'),
 
   // S&P 500 Directory Modal Elements
   btnOpenSp500Modal: document.getElementById('btn-open-sp500-modal'),
@@ -163,6 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initApiModalValues();
   renderTickerTape();
   renderQuickTickerPills();
+  renderWatchlist();
+  renderWatchButton();
   setupEventListeners();
   loadDashboardData(state.ticker);
 });
@@ -179,69 +194,82 @@ function updateApiStatusBadge() {
   const hasTwelve = state.apiKeys.twelveData.trim().length > 3;
   const hasRouter = state.apiKeys.openRouter.trim().length > 3;
 
-  if (hasNewsApi) {
-    el.apiStatusLabel.textContent = 'NewsAPI Live Stream Active';
-    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-mint-400';
-    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-mint-400 opacity-75';
-  } else if (hasTwelve && hasRouter) {
-    el.apiStatusLabel.textContent = 'Live API Active';
-    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
-    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
-  } else if (hasTwelve || hasRouter) {
-    el.apiStatusLabel.textContent = 'Partial Key Active';
-    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-moss-500';
-    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-moss-400 opacity-75';
+  const count = [hasNewsApi, hasTwelve, hasRouter].filter(Boolean).length;
+
+  // Say what is actually configured. The old copy read "Verified S&P 500 Data
+  // Active" even with zero keys, which claimed live data the app did not have.
+  if (count === 3) {
+    el.apiStatusLabel.textContent = 'All keys set';
+    el.apiStatusDot.className = 'status-dot is-ok';
+    el.apiStatusPing.className = 'status-ping is-ok';
+  } else if (count > 0) {
+    el.apiStatusLabel.textContent = `${count} of 3 keys`;
+    el.apiStatusDot.className = 'status-dot is-partial';
+    el.apiStatusPing.className = 'status-ping is-partial';
   } else {
-    el.apiStatusLabel.textContent = 'Verified S&P 500 Data Active';
-    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
-    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
+    el.apiStatusLabel.textContent = 'Demo mode';
+    el.apiStatusDot.className = 'status-dot is-partial';
+    el.apiStatusPing.className = 'status-ping is-partial';
   }
+
+  const titles = [
+    `NewsAPI: ${hasNewsApi ? 'set' : 'not set'}`,
+    `Twelve Data: ${hasTwelve ? 'set' : 'not set'}`,
+    `OpenRouter: ${hasRouter ? 'set' : 'not set'}`
+  ].join(' · ');
+  el.btnOpenApiModal?.setAttribute('title', titles);
+  el.btnOpenApiModal?.setAttribute('aria-label', `API keys — ${titles}`);
 }
 
 // TOP MARKET TICKER TAPE
 function renderTickerTape() {
+  // `ticker` is only set for entries that are actually tradable symbols in the dataset.
+  // Indices and rates are display-only — clicking them used to load a bogus "S&P"/"10Y" ticker.
   const tapeItems = [
-    { symbol: 'S&P 500', price: '5,640.20', change: '+0.84%', up: true },
-    { symbol: 'NASDAQ', price: '18,210.80', change: '+1.42%', up: true },
-    { symbol: 'DOW JONES', price: '40,890.15', change: '+0.28%', up: true },
-    { symbol: 'BITCOIN 2026', price: '$94,250.00', change: '+4.12%', up: true },
-    { symbol: 'NVDA', price: '$148.25', change: '+3.42%', up: true },
-    { symbol: 'AAPL', price: '$238.90', change: '+0.85%', up: true },
-    { symbol: 'MSFT', price: '$462.10', change: '+1.25%', up: true },
-    { symbol: 'TSLA', price: '$254.60', change: '-1.15%', up: false },
-    { symbol: '10Y TREASURY', price: '3.88%', change: '-0.04', up: false }
+    { label: 'S&P 500', price: '5,640.20', change: '+0.84%', up: true },
+    { label: 'NASDAQ', price: '18,210.80', change: '+1.42%', up: true },
+    { label: 'DOW JONES', price: '40,890.15', change: '+0.28%', up: true },
+    { label: '10Y TREASURY', price: '3.88%', change: '-0.04', up: false },
+    { label: 'NVDA', ticker: 'NVDA', price: '$148.25', change: '+3.42%', up: true },
+    { label: 'AAPL', ticker: 'AAPL', price: '$238.90', change: '+0.85%', up: true },
+    { label: 'MSFT', ticker: 'MSFT', price: '$462.10', change: '+1.25%', up: true },
+    { label: 'TSLA', ticker: 'TSLA', price: '$254.60', change: '-1.15%', up: false },
+    { label: 'META', ticker: 'META', price: '$542.80', change: '+2.10%', up: true }
   ];
 
   // Duplicate for smooth seamless loop
   const list = [...tapeItems, ...tapeItems];
-  
-  el.tickerTape.innerHTML = list.map(item => `
-    <div class="flex items-center gap-2 cursor-pointer hover:text-moss-400 transition" onclick="window.handleTickerSelect('${item.symbol.split(' ')[0]}')">
-      <span class="font-bold text-paper-300">${item.symbol}:</span>
-      <span class="text-paper-100 font-semibold">${item.price}</span>
-      <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${item.up ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-clay-500/10 text-clay-400 border border-clay-500/20'}">
-        ${item.change}
-      </span>
-    </div>
-  `).join('<span class="text-paper-700">•</span>');
+
+  el.tickerTape.innerHTML = list
+    .map(item => {
+      const interactive = Boolean(item.ticker);
+      const tag = interactive ? 'button' : 'div';
+      const attrs = interactive
+        ? ` type="button" data-tape-symbol="${escapeHtml(item.ticker)}" class="tape-item tape-item--link"`
+        : ' class="tape-item"';
+      return `
+    <${tag}${attrs}>
+      <span class="tape-label">${escapeHtml(item.label)}</span>
+      <span class="tape-price">${escapeHtml(item.price)}</span>
+      <span class="tape-delta ${item.up ? 'is-up' : 'is-down'}">${escapeHtml(item.change)}</span>
+    </${tag}>`;
+    })
+    .join('<span class="tape-sep" aria-hidden="true">•</span>');
 }
 
 // QUICK TICKER SELECTION PILLS
 function renderQuickTickerPills() {
   el.quickTickerPills.innerHTML = POPULAR_TICKERS.map(t => {
     const isActive = t.symbol === state.ticker;
-    const colorClass = t.changePct >= 0 ? 'text-emerald-400' : 'text-clay-400';
     return `
-      <button 
-        data-symbol="${t.symbol}"
-        class="px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition flex items-center gap-1.5 ${
-          isActive 
-            ? 'bg-moss-600 text-paper-50 border-moss-500 shadow-md shadow-moss-600/30' 
-            : 'bg-paper-900 border-paper-800 text-paper-300 hover:border-paper-700 hover:text-paper-50'
-        }"
+      <button
+        type="button"
+        data-symbol="${escapeHtml(t.symbol)}"
+        class="chip${isActive ? ' is-active' : ''}"
+        ${isActive ? 'aria-current="true"' : ''}
       >
-        <span>${t.symbol}</span>
-        <span class="${isActive ? 'text-moss-200' : colorClass} text-[10px]">${t.changePct >= 0 ? '+' : ''}${t.changePct}%</span>
+        <span class="chip__sym">${escapeHtml(t.symbol)}</span>
+        <span class="chip__delta ${t.changePct >= 0 ? 'is-up' : 'is-down'}">${t.changePct >= 0 ? '+' : ''}${t.changePct}%</span>
       </button>
     `;
   }).join('');
@@ -283,8 +311,12 @@ async function loadDashboardData(ticker) {
 
     // Update Quick Pills Active State
     renderQuickTickerPills();
+    renderDataSourceBadge();
+    renderWatchButton();
+    renderWatchlist();
   } catch (err) {
     console.error('Failed to load dashboard data:', err);
+    showToast(`Could not load ${state.ticker}: ${err.message}`, 'error');
   } finally {
     showChartLoader(false);
   }
@@ -295,6 +327,78 @@ function showChartLoader(show) {
     if (show) el.chartLoader.classList.remove('hidden');
     else el.chartLoader.classList.add('hidden');
   }
+}
+
+// ---------------------------------------------------------------- WATCHLIST --
+// A small persisted set of symbols, surfaced as a row of chips next to Trending.
+
+function getWatchlist() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('aura_watchlist') || '[]');
+    return Array.isArray(raw) ? raw.filter(s => typeof s === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function setWatchlist(list) {
+  localStorage.setItem('aura_watchlist', JSON.stringify([...new Set(list)].slice(0, 12)));
+}
+
+function toggleWatch(symbol) {
+  const sym = symbol.toUpperCase();
+  const list = getWatchlist();
+  const next = list.includes(sym) ? list.filter(s => s !== sym) : [...list, sym];
+  setWatchlist(next);
+  showToast(list.includes(sym) ? `${sym} removed from watchlist` : `${sym} added to watchlist`);
+  renderWatchlist();
+  renderWatchButton();
+}
+
+function renderWatchButton() {
+  if (!el.btnWatch) return;
+  const watched = getWatchlist().includes(state.ticker);
+  el.btnWatch.setAttribute('aria-pressed', String(watched));
+  el.btnWatch.classList.toggle('is-on', watched);
+  el.btnWatch.title = watched ? `Remove ${state.ticker} from watchlist` : `Add ${state.ticker} to watchlist`;
+  el.btnWatch.setAttribute('aria-label', el.btnWatch.title);
+}
+
+function renderWatchlist() {
+  if (!el.watchlist) return;
+  const list = getWatchlist();
+  el.watchlistWrap?.classList.toggle('hidden', list.length === 0);
+  el.watchlist.innerHTML = list
+    .map(
+      sym => `<button type="button" class="chip chip--sm${sym === state.ticker ? ' is-active' : ''}" data-symbol="${escapeHtml(sym)}">
+        <span class="chip__sym">${escapeHtml(sym)}</span>
+      </button>`
+    )
+    .join('');
+}
+
+/** Transient status message. Announced politely so screen readers pick it up. */
+let toastTimer = null;
+function showToast(message, kind = 'info') {
+  const region = el.toastRegion;
+  if (!region) return;
+  region.innerHTML = `<div class="toast toast--${kind}">${escapeHtml(message)}</div>`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    region.innerHTML = '';
+  }, 6000);
+}
+
+/** Reflect whether the chart is showing live vendor bars or the generated model series. */
+function renderDataSourceBadge() {
+  if (!el.dataSourceBadge) return;
+  const src = getLastDataSource();
+  const live = src.kind === 'live';
+  el.dataSourceBadge.textContent = live ? 'Live market data' : 'Model dataset';
+  el.dataSourceBadge.className = `tag ${live ? 'is-up' : 'is-flat'}`;
+  el.dataSourceBadge.title = live
+    ? 'Daily bars from Twelve Data'
+    : `Generated 2026 series — ${src.detail}. Add a Twelve Data key for live bars.`;
 }
 
 // RENDER HERO BANNER
@@ -310,15 +414,16 @@ function renderHeroBanner() {
 
   el.heroPrice.textContent = `$${m.latestPrice.toFixed(2)}`;
 
+  // Treat a change that rounds to zero as flat rather than showing "▲ +$0.00"
+  const flat = Math.abs(m.dayPctChange) < 0.005;
   const isUp = m.dayChange >= 0;
-  el.heroChangeContainer.className = `flex items-center gap-2 px-3 py-1 rounded-xl font-mono font-bold text-lg ${
-    isUp 
-      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
-      : 'bg-clay-500/10 border border-clay-500/20 text-clay-400'
-  }`;
-  el.heroChangeIcon.textContent = isUp ? '▲' : '▼';
-  el.heroChangeDollar.textContent = `${isUp ? '+' : ''}$${m.dayChange.toFixed(2)}`;
-  el.heroChangePct.textContent = `(${isUp ? '+' : ''}${m.dayPctChange.toFixed(2)}%)`;
+  const tone = flat ? 'is-flat' : isUp ? 'is-up' : 'is-down';
+  el.heroChangeContainer.className = `delta-chip ${tone}`;
+  el.heroChangeIcon.textContent = flat ? '■' : isUp ? '▲' : '▼';
+  el.heroChangeDollar.textContent = flat
+    ? 'Unchanged'
+    : `${isUp ? '+' : ''}$${m.dayChange.toFixed(2)}`;
+  el.heroChangePct.textContent = flat ? '' : `(${isUp ? '+' : ''}${m.dayPctChange.toFixed(2)}%)`;
 
   el.heroDayLow.textContent = `$${m.dayLow.toFixed(2)}`;
   el.heroDayHigh.textContent = `$${m.dayHigh.toFixed(2)}`;
@@ -337,8 +442,9 @@ function renderFundamentals() {
   if (!c) return;
 
   if (el.fundamentalsBadge) {
-    el.fundamentalsBadge.textContent = 'Real-Time S&P 500 Data';
-    el.fundamentalsBadge.className = 'text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-semibold';
+    // Fundamentals always come from the bundled S&P 500 reference set, never live
+    el.fundamentalsBadge.textContent = 'Reference data';
+    el.fundamentalsBadge.className = 'tag is-neutral';
   }
 
   el.mCap.textContent = c.marketCap;
@@ -348,7 +454,9 @@ function renderFundamentals() {
   el.mRevGrowth.textContent = c.revenueGrowth;
   el.mFcf.textContent = c.freeCashFlow;
   el.mBeta.textContent = c.beta;
-  el.mTarget.innerHTML = `${c.targetPrice} <span class="text-[10px] text-emerald-400">(${c.upsidePct})</span>`;
+  el.mTarget.innerHTML = `${escapeHtml(c.targetPrice)} <span class="metric__delta ${
+    String(c.upsidePct).startsWith('-') ? 'is-down' : 'is-up'
+  }">${escapeHtml(c.upsidePct)}</span>`;
 }
 
 // RENDER PRICE CHART WITH CHART.JS
@@ -356,7 +464,11 @@ function renderChart() {
   if (!state.priceData || state.priceData.length === 0) return;
 
   // Filter bars based on timeframe
-  const filteredBars = filterBarsByTimeframe(state.priceData, state.timeframe);
+  const allBars = state.priceData;
+  const filteredBars = filterBarsByTimeframe(allBars, state.timeframe);
+  // Indicators are computed over the FULL series and then sliced to the visible window,
+  // so a 50/200 SMA is correct at the left edge of the view instead of starting at null.
+  const offset = allBars.length - filteredBars.length;
 
   const labels = filteredBars.map(b => {
     const parts = b.date.split('-');
@@ -365,27 +477,46 @@ function renderChart() {
   const closes = filteredBars.map(b => b.close);
   const volumes = filteredBars.map(b => b.volume);
 
-  const sma50Values = calculateSMA(filteredBars, 20); // 20-period
-  const sma200Values = calculateSMA(filteredBars, 50);
-  const bb = calculateBollingerBands(filteredBars, 20, 2);
+  const sma50Values = calculateSMA(allBars, 50).slice(offset);
+  const sma200Values = calculateSMA(allBars, 200).slice(offset);
+  const bbFull = calculateBollingerBands(allBars, 20, 2);
+  const bb = {
+    upper: bbFull.upper.slice(offset),
+    middle: bbFull.middle.slice(offset),
+    lower: bbFull.lower.slice(offset)
+  };
 
   // Set default readout to latest bar
   updateOhlcReadout(filteredBars[filteredBars.length - 1]);
 
   const ctx = el.chartCanvas.getContext('2d');
 
-  // Create gradient fill
+  // Palette tuned for the light paper ground
+  const C = {
+    up: '#1c6e46',
+    down: '#a8492a',
+    sma50: '#2f7d4f',
+    sma200: '#d08b1f',
+    band: 'rgba(47, 111, 134, 0.55)',
+    bandFill: 'rgba(47, 111, 134, 0.08)',
+    volUp: 'rgba(47, 125, 79, 0.30)',
+    volDown: 'rgba(168, 73, 42, 0.22)',
+    grid: 'rgba(20, 53, 42, 0.07)',
+    tick: '#6b7a70'
+  };
+
+  // Area gradient — both stops in the same hue family, fading to transparent
   const isUpTrend = closes[closes.length - 1] >= closes[0];
-  const gradient = ctx.createLinearGradient(0, 0, 0, 320);
+  const gradient = ctx.createLinearGradient(0, 0, 0, 340);
   if (isUpTrend) {
-    gradient.addColorStop(0, 'rgba(47, 128, 73, 0.35)');
-    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+    gradient.addColorStop(0, 'rgba(28, 110, 70, 0.22)');
+    gradient.addColorStop(1, 'rgba(28, 110, 70, 0)');
   } else {
-    gradient.addColorStop(0, 'rgba(178, 87, 56, 0.35)');
-    gradient.addColorStop(1, 'rgba(244, 63, 94, 0.0)');
+    gradient.addColorStop(0, 'rgba(168, 73, 42, 0.20)');
+    gradient.addColorStop(1, 'rgba(168, 73, 42, 0)');
   }
 
-  const primaryColor = isUpTrend ? '#4c9f5e' : '#b25738';
+  const primaryColor = isUpTrend ? C.up : C.down;
 
   // Build datasets
   const datasets = [];
@@ -405,23 +536,25 @@ function renderChart() {
       yAxisID: 'y'
     });
   } else {
-    // High-Low Range Candle wicks / bars
+    // Wick and body share one x slot: `grouped: false` overlays them instead of
+    // placing them side by side, which is what makes it read as a candle.
     datasets.push({
       label: `${state.ticker} High-Low`,
       data: filteredBars.map(b => [b.low, b.high]),
       type: 'bar',
-      barThickness: 2,
-      backgroundColor: filteredBars.map(b => (b.close >= b.open ? '#1f8054' : '#b25738')),
+      grouped: false,
+      barThickness: 1.5,
+      backgroundColor: filteredBars.map(b => (b.close >= b.open ? C.up : C.down)),
       yAxisID: 'y'
     });
 
-    // Candle Body (Open-Close)
     datasets.push({
       label: `${state.ticker} Candle Body`,
       data: filteredBars.map(b => [Math.min(b.open, b.close), Math.max(b.open, b.close)]),
       type: 'bar',
-      barThickness: Math.max(3, Math.min(10, 300 / filteredBars.length)),
-      backgroundColor: filteredBars.map(b => (b.close >= b.open ? '#1f8054' : '#b25738')),
+      grouped: false,
+      barThickness: Math.max(3, Math.min(11, 420 / filteredBars.length)),
+      backgroundColor: filteredBars.map(b => (b.close >= b.open ? C.up : C.down)),
       yAxisID: 'y'
     });
   }
@@ -430,9 +563,9 @@ function renderChart() {
     datasets.push({
       label: '50 SMA',
       data: sma50Values,
-      borderColor: '#2f8049',
+      borderColor: C.sma50,
       borderWidth: 1.5,
-      borderDash: [4, 4],
+      borderDash: [5, 4],
       fill: false,
       tension: 0.2,
       pointRadius: 0,
@@ -444,9 +577,9 @@ function renderChart() {
     datasets.push({
       label: '200 SMA',
       data: sma200Values,
-      borderColor: '#e4a238',
+      borderColor: C.sma200,
       borderWidth: 1.5,
-      borderDash: [2, 2],
+      borderDash: [2, 3],
       fill: false,
       tension: 0.2,
       pointRadius: 0,
@@ -458,7 +591,7 @@ function renderChart() {
     datasets.push({
       label: 'Upper BB',
       data: bb.upper,
-      borderColor: 'rgba(139, 148, 119, 0.7)',
+      borderColor: C.band,
       borderWidth: 1,
       fill: false,
       pointRadius: 0,
@@ -467,24 +600,27 @@ function renderChart() {
     datasets.push({
       label: 'Lower BB',
       data: bb.lower,
-      borderColor: 'rgba(139, 148, 119, 0.7)',
+      borderColor: C.band,
       borderWidth: 1,
       fill: '-1',
-      backgroundColor: 'rgba(139, 148, 119, 0.12)',
+      backgroundColor: C.bandFill,
       pointRadius: 0,
       yAxisID: 'y'
     });
   }
 
   if (state.activeOverlays.volume) {
-    const maxVol = Math.max(...volumes);
-    const normalizedVol = volumes.map(v => (v / maxVol) * (Math.max(...closes) * 0.2));
+    // Volume rides its own hidden axis so it never compresses the price scale.
     datasets.push({
       label: 'Volume',
-      data: normalizedVol,
+      data: volumes,
       type: 'bar',
-      backgroundColor: closes.map((c, i) => (i > 0 && c >= closes[i - 1] ? 'rgba(31, 128, 84, 0.3)' : 'rgba(178, 87, 56, 0.3)')),
-      yAxisID: 'y'
+      backgroundColor: closes.map((c, i) => (i > 0 && c >= closes[i - 1] ? C.volUp : C.volDown)),
+      borderWidth: 0,
+      barPercentage: 0.62,
+      categoryPercentage: 0.92,
+      yAxisID: 'yVol',
+      order: 10
     });
   }
 
@@ -519,15 +655,30 @@ function renderChart() {
       },
       scales: {
         x: {
-          grid: { color: 'rgba(255, 255, 255, 0.04)' },
-          ticks: { color: '#5c7d68', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 12 }
+          grid: { color: C.grid, drawTicks: false },
+          border: { display: false },
+          ticks: { color: C.tick, font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 10, padding: 6 }
+        },
+        yVol: {
+          // Hidden axis for the volume bars. Capped at 4x peak volume so the bars
+          // occupy roughly the bottom quarter and never intrude on the price line.
+          display: false,
+          beginAtZero: true,
+          max: Math.max(...volumes) * 4,
+          grid: { display: false }
         },
         y: {
           position: 'right',
-          grid: { color: 'rgba(255, 255, 255, 0.04)' },
+          // Never anchor the price scale at zero — it flattens the series.
+          beginAtZero: false,
+          grace: '8%',
+          grid: { color: C.grid, drawTicks: false },
+          border: { display: false },
           ticks: {
-            color: '#5c7d68',
+            color: C.tick,
+            padding: 8,
             font: { family: 'JetBrains Mono', size: 11 },
+            maxTicksLimit: 7,
             callback: (val) => `$${val.toFixed(0)}`
           }
         }
@@ -546,12 +697,21 @@ function updateOhlcReadout(bar) {
   if (el.ohlcVol) el.ohlcVol.textContent = `${(bar.volume / 1000000).toFixed(1)}M`;
 }
 
+// Approximate US trading days per window
+const TIMEFRAME_BARS = { '1W': 5, '1M': 22, '3M': 65, '6M': 130, '1Y': 252 };
+
 function filterBarsByTimeframe(data, tf) {
-  if (tf === '1D') return data.slice(-2);
-  if (tf === '1W') return data.slice(-5);
-  if (tf === '1M') return data.slice(-22);
-  if (tf === 'YTD') return data.slice(-60);
-  return data; // 3M default (90 days)
+  if (!data || data.length === 0) return [];
+
+  if (tf === 'YTD') {
+    const latestYear = data[data.length - 1].date.slice(0, 4);
+    const ytd = data.filter(b => b.date >= `${latestYear}-01-01`);
+    // Fall back to ~6M if the dataset does not reach back to January
+    return ytd.length > 5 ? ytd : data.slice(-TIMEFRAME_BARS['6M']);
+  }
+
+  const bars = TIMEFRAME_BARS[tf];
+  return bars ? data.slice(-bars) : data.slice(-TIMEFRAME_BARS['3M']);
 }
 
 // RENDER TECHNICAL RADAR & DEDICATED SECTIONS
@@ -575,31 +735,29 @@ function renderTechnicalRadar() {
   // 1. Ticker badge
   if (el.techTickerBadge) el.techTickerBadge.textContent = state.ticker;
 
-  // 2. Quick Radar
-  if (el.radarRsiVal) el.radarRsiVal.textContent = rsi.value;
-  if (el.radarRsiBar) el.radarRsiBar.style.width = `${Math.min(100, Math.max(5, rsi.value))}%`;
-  if (el.radarRsiStatus) el.radarRsiStatus.textContent = rsi.status;
-  if (el.radarMacdVal) el.radarMacdVal.textContent = `${macd.histogram >= 0 ? '+' : ''}${macd.histogram} (${macd.status})`;
-  if (el.radarMaTrend) el.radarMaTrend.textContent = sma50 >= sma200 ? 'Golden Cross Active' : 'Neutral / Bearish';
-
-  // 3. Dedicated Section 1: RSI
+  // 2. RSI
   if (el.rsiValue) el.rsiValue.textContent = rsi.value;
   if (el.rsiStatusText) el.rsiStatusText.textContent = rsi.status;
-  if (el.rsiBar) el.rsiBar.style.width = `${Math.min(100, Math.max(5, rsi.value))}%`;
+  if (el.rsiBar) {
+    el.rsiBar.style.width = `${Math.min(100, Math.max(5, rsi.value))}%`;
+    // Bar colour tracks the zone, so the meter is readable without the label
+    const zone = rsi.value >= 70 ? 'is-hot' : rsi.value <= 30 ? 'is-cold' : 'is-mid';
+    el.rsiBar.className = `meter__fill ${zone}`;
+  }
 
   if (el.rsiBadge) {
     if (rsi.value >= 70) {
       el.rsiBadge.textContent = 'OVERBOUGHT';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-clay-500/10 text-clay-400 border border-clay-500/20';
+      el.rsiBadge.className = 'tag is-down';
     } else if (rsi.value <= 30) {
       el.rsiBadge.textContent = 'OVERSOLD';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      el.rsiBadge.className = 'tag is-up';
     } else if (rsi.value >= 60) {
       el.rsiBadge.textContent = 'BULLISH';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-moss-500/10 text-moss-300 border border-moss-500/20';
+      el.rsiBadge.className = 'tag is-accent';
     } else {
       el.rsiBadge.textContent = 'NEUTRAL';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-paper-800 text-paper-300 border border-paper-700';
+      el.rsiBadge.className = 'tag is-flat';
     }
   }
 
@@ -621,22 +779,22 @@ function renderTechnicalRadar() {
   // 4. Dedicated Section 2: MACD
   if (el.macdValue) {
     el.macdValue.textContent = `${macd.histogram >= 0 ? '+' : ''}${macd.histogram}`;
-    el.macdValue.className = macd.histogram >= 0 ? 'text-2xl font-mono font-extrabold text-emerald-400' : 'text-2xl font-mono font-extrabold text-clay-400';
+    el.macdValue.className = macd.histogram >= 0 ? 'stat-lg is-up' : 'stat-lg is-down';
   }
   if (el.macdStatusText) el.macdStatusText.textContent = macd.status;
   if (el.macdLineVal) el.macdLineVal.textContent = `${macd.macd >= 0 ? '+' : ''}${macd.macd}`;
   if (el.macdSignalVal) el.macdSignalVal.textContent = `${macd.signal >= 0 ? '+' : ''}${macd.signal}`;
   if (el.macdHistVal) {
     el.macdHistVal.textContent = `${macd.histogram >= 0 ? '+' : ''}${macd.histogram}`;
-    el.macdHistVal.className = macd.histogram >= 0 ? 'font-bold text-emerald-400' : 'font-bold text-clay-400';
+    el.macdHistVal.className = macd.histogram >= 0 ? 'num is-up' : 'num is-down';
   }
   if (el.macdBadge) {
     if (macd.histogram >= 0) {
       el.macdBadge.textContent = 'BULLISH CROSSOVER';
-      el.macdBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      el.macdBadge.className = 'tag is-up';
     } else {
       el.macdBadge.textContent = 'BEARISH CROSSOVER';
-      el.macdBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-clay-500/10 text-clay-400 border border-clay-500/20';
+      el.macdBadge.className = 'tag is-down';
     }
   }
   if (el.macdComment) {
@@ -648,35 +806,44 @@ function renderTechnicalRadar() {
   }
 
   // 5. Dedicated Section 3: Moving Averages
-  const diff50 = (((latestPrice - sma50) / sma50) * 100).toFixed(1);
-  const diff200 = (((latestPrice - sma200) / sma200) * 100).toFixed(1);
+  // Keep these numeric — comparing the toFixed() string made "-0.0" test as >= 0
+  // and render "+-0.0%".
+  const diff50 = ((latestPrice - sma50) / sma50) * 100;
+  const diff200 = ((latestPrice - sma200) / sma200) * 100;
+  const fmtPct = (v) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
 
   if (el.maSma50Val) el.maSma50Val.textContent = `$${sma50.toFixed(2)}`;
   if (el.maSma50Diff) {
-    el.maSma50Diff.textContent = `${diff50 >= 0 ? '+' : ''}${diff50}% vs 50D`;
-    el.maSma50Diff.className = diff50 >= 0 ? 'text-[10px] text-emerald-400 block font-bold' : 'text-[10px] text-clay-400 block font-bold';
+    el.maSma50Diff.textContent = `${fmtPct(diff50)}% vs 50D`;
+    el.maSma50Diff.className = diff50 >= 0 ? 'num-sm is-up block' : 'num-sm is-down block';
   }
   if (el.maSma200Val) el.maSma200Val.textContent = `$${sma200.toFixed(2)}`;
   if (el.maSma200Diff) {
-    el.maSma200Diff.textContent = `${diff200 >= 0 ? '+' : ''}${diff200}% vs 200D`;
-    el.maSma200Diff.className = diff200 >= 0 ? 'text-[10px] text-emerald-400 block font-bold' : 'text-[10px] text-clay-400 block font-bold';
+    el.maSma200Diff.textContent = `${fmtPct(diff200)}% vs 200D`;
+    el.maSma200Diff.className = diff200 >= 0 ? 'num-sm is-up block' : 'num-sm is-down block';
   }
   if (el.maTrendBadge) {
     if (sma50 >= sma200) {
       el.maTrendBadge.textContent = 'GOLDEN CROSS ACTIVE';
-      el.maTrendBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      el.maTrendBadge.className = 'tag is-up';
     } else {
       el.maTrendBadge.textContent = 'DEATH CROSS / BEARISH';
-      el.maTrendBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-ochre-500/10 text-ochre-400 border border-ochre-500/20';
+      el.maTrendBadge.className = 'tag is-accent';
     }
   }
   if (el.maComment) {
-    if (latestPrice >= sma50 && sma50 >= sma200) {
-      el.maComment.textContent = `Strong structural alignment: Price sits ${diff50}% above 50D SMA and ${diff200}% above 200D SMA.`;
-    } else if (latestPrice < sma50 && latestPrice >= sma200) {
-      el.maComment.textContent = `Consolidating between 50D SMA ($${sma50.toFixed(2)}) resistance and 200D SMA ($${sma200.toFixed(2)}) support.`;
+    // Branch on the actual price/average relationship — the old `else` claimed the
+    // price was below both averages in cases where it was above the 50-day.
+    const above50 = latestPrice >= sma50;
+    const above200 = latestPrice >= sma200;
+    if (above50 && above200) {
+      el.maComment.textContent = `Price sits ${fmtPct(diff50)}% against the 50D and ${fmtPct(diff200)}% against the 200D — both averages are support.`;
+    } else if (!above50 && above200) {
+      el.maComment.textContent = `Consolidating between the 50D SMA ($${sma50.toFixed(2)}) as resistance and the 200D SMA ($${sma200.toFixed(2)}) as support.`;
+    } else if (above50 && !above200) {
+      el.maComment.textContent = `Recovering above the 50D SMA ($${sma50.toFixed(2)}) but still below the 200D SMA ($${sma200.toFixed(2)}).`;
     } else {
-      el.maComment.textContent = `Trading below key moving averages; monitoring for stabilization near major support levels.`;
+      el.maComment.textContent = `Trading below both key averages; watching for stabilisation near major support.`;
     }
   }
 
@@ -693,13 +860,13 @@ function renderTechnicalRadar() {
   if (el.bbPosBadge) {
     if (pctB >= 80) {
       el.bbPosBadge.textContent = 'UPPER BAND TEST';
-      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-sage-500/10 text-sage-300 border border-sage-500/20';
+      el.bbPosBadge.className = 'tag is-accent';
     } else if (pctB <= 20) {
       el.bbPosBadge.textContent = 'LOWER BAND TEST';
-      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-moss-500/10 text-moss-300 border border-moss-500/20';
+      el.bbPosBadge.className = 'tag is-accent';
     } else {
       el.bbPosBadge.textContent = 'MID CHANNEL';
-      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-paper-800 text-paper-300 border border-paper-700';
+      el.bbPosBadge.className = 'tag is-flat';
     }
   }
 
@@ -710,21 +877,27 @@ function renderTechnicalRadar() {
 
 // AI RESEARCH SYNTHESIS LOADER
 async function loadAiSynthesis() {
-  el.aiNoteText.textContent = 'Generating 2026 GenAI Financial Analysis...';
+  el.aiNoteText.textContent = 'Generating research synthesis…';
   el.btnRegenerateAi.disabled = true;
 
   const preset = el.aiPresetSelect ? el.aiPresetSelect.value : 'General';
-  const aiData = await getAiResearchSynthesis(
-    state.ticker,
-    state.priceData,
-    state.metrics,
-    state.apiKeys.openRouter,
-    preset
-  );
-
-  state.aiSynthesis = aiData;
-  renderAiSynthesis();
-  el.btnRegenerateAi.disabled = false;
+  try {
+    state.aiSynthesis = await getAiResearchSynthesis(
+      state.ticker,
+      state.priceData,
+      state.metrics,
+      state.apiKeys.openRouter,
+      preset
+    );
+    renderAiSynthesis();
+  } catch (err) {
+    console.error('AI synthesis failed:', err);
+    el.aiNoteText.textContent = 'Could not generate the research note. Try again, or check your OpenRouter key.';
+    showToast(`Research synthesis failed: ${err.message}`, 'error');
+  } finally {
+    // Always re-enable, otherwise one rejection disables the button for the session
+    el.btnRegenerateAi.disabled = false;
+  }
 }
 
 function renderAiSynthesis() {
@@ -741,12 +914,20 @@ function renderAiSynthesis() {
 
   // Render bullet drivers
   if (el.aiDriversList) {
-    el.aiDriversList.innerHTML = ai.keyDrivers.map(driver => `
-      <li class="flex items-start gap-2 text-xs text-paper-300">
-        <span class="text-mint-400 font-bold mt-0.5">•</span>
-        <span class="leading-relaxed font-sans">${driver}</span>
-      </li>
-    `).join('');
+    el.aiDriversList.innerHTML = ai.keyDrivers
+      .map(driver => `<li class="driver">${escapeHtml(driver)}</li>`)
+      .join('');
+  }
+}
+
+/** Only allow http(s) links through to an href. */
+function safeUrl(url) {
+  if (!url || url === '#') return null;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : null;
+  } catch {
+    return null;
   }
 }
 
@@ -754,24 +935,34 @@ function renderAiSynthesis() {
 async function renderNewsFeed() {
   const news = await get2026MarketNews(state.ticker, state.apiKeys.newsApi);
 
-  el.newsContainer.innerHTML = news.map(item => `
-    <div class="bg-paper-950/60 p-4 rounded-xl border border-paper-800/60 hover:border-paper-700 transition flex flex-col justify-between space-y-3">
-      <div class="space-y-1.5">
-        <div class="flex items-center justify-between text-[11px] font-mono">
-          <span class="text-moss-400 font-bold">${item.source} ${item.isLive ? '<span class="text-[9px] text-mint-400 bg-mint-500/10 px-1 py-0.2 rounded border border-mint-500/20 font-sans">LIVE NEWSAPI</span>' : ''}</span>
-          <span class="text-paper-500">${item.time}</span>
+  el.newsContainer.innerHTML = news
+    .map(item => {
+      const href = safeUrl(item.url);
+      const impactClass =
+        item.impact === 'Bullish' ? 'is-up' : item.impact === 'Bearish' ? 'is-down' : 'is-flat';
+      return `
+    <article class="news-card">
+      <div class="news-card__body">
+        <div class="news-card__meta">
+          <span class="news-card__source">${escapeHtml(item.source)}${
+            item.isLive ? '<span class="news-card__live">LIVE</span>' : ''
+          }</span>
+          <span class="news-card__time">${escapeHtml(item.time)}</span>
         </div>
-        <h4 class="text-xs font-bold text-paper-100 leading-snug">${item.title}</h4>
-        <p class="text-[11px] text-paper-400 leading-relaxed">${item.snippet || ''}</p>
+        <h4 class="news-card__title">${escapeHtml(item.title)}</h4>
+        <p class="news-card__snippet">${escapeHtml(item.snippet || '')}</p>
       </div>
-      <div class="flex items-center justify-between pt-2 border-t border-paper-800/40 text-[10px] font-mono">
-        <span class="px-2 py-0.5 rounded ${item.impact === 'Bullish' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : item.impact === 'Bearish' ? 'bg-clay-500/10 text-clay-400 border border-clay-500/20' : 'bg-paper-800 text-paper-300'} font-bold">
-          ${item.impact}
-        </span>
-        ${item.url && item.url !== '#' ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="text-moss-400 hover:underline transition">Read Article →</a>` : '<span class="text-paper-500">Curated Update</span>'}
+      <div class="news-card__footer">
+        <span class="tag ${impactClass}">${escapeHtml(item.impact)}</span>
+        ${
+          href
+            ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="news-card__link">Read article →</a>`
+            : '<span class="news-card__curated">Curated update</span>'
+        }
       </div>
-    </div>
-  `).join('');
+    </article>`;
+    })
+    .join('');
 }
 
 // SEARCH & AUTOCOMPLETE HANDLERS
@@ -788,40 +979,79 @@ function setupEventListeners() {
   });
 
   function showSearchMatches(val) {
-    const matches = searchSp500Companies(val);
+    const matches = searchSp500Companies(val).slice(0, 40);
 
     if (matches.length > 0) {
       el.dropdown.innerHTML = `
-        <div class="px-3 py-1.5 bg-paper-950 border-b border-paper-800 text-[10px] font-mono text-paper-400 uppercase tracking-wider flex items-center justify-between">
-          <span>S&P 500 Companies (${matches.length} found)</span>
-          <span>Click to select</span>
+        <div class="dropdown__head">
+          <span>${matches.length} match${matches.length === 1 ? '' : 'es'}</span>
+          <span>↩ to select</span>
         </div>
-        ${matches.map(m => `
-          <div class="p-3 hover:bg-paper-800/90 cursor-pointer flex items-center justify-between border-b border-paper-800/40 last:border-0 transition" onclick="window.handleTickerSelect('${m.symbol}')">
-            <div class="space-y-0.5">
-              <div class="flex items-center gap-2">
-                <span class="font-mono font-bold text-paper-50 text-sm">${m.symbol}</span>
-                <span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-moss-500/10 text-moss-300 border border-moss-500/20">${m.sector}</span>
-              </div>
-              <span class="text-xs text-paper-400 block font-medium">${m.name}</span>
-            </div>
-            <div class="text-right space-y-0.5 font-mono text-xs">
-              <div class="font-bold text-paper-50">$${m.price.toFixed(2)} <span class="${m.changePct >= 0 ? 'text-emerald-400' : 'text-clay-400'}">(${m.changePct >= 0 ? '+' : ''}${m.changePct}%)</span></div>
-              <div class="text-[10px] text-paper-400">Cap: <strong class="text-paper-200">${m.cap}</strong> • P/E: <strong class="text-paper-200">${m.pe}</strong></div>
-            </div>
-          </div>
-        `).join('')}
+        ${matches
+          .map(
+            m => `
+          <button type="button" class="dropdown__row" data-symbol="${escapeHtml(m.symbol)}">
+            <span class="dropdown__ident">
+              <span class="dropdown__sym">${escapeHtml(m.symbol)}</span>
+              <span class="dropdown__name">${escapeHtml(m.name)}</span>
+            </span>
+            <span class="dropdown__stats">
+              <span class="dropdown__price">$${m.price.toFixed(2)}</span>
+              <span class="dropdown__delta ${m.changePct >= 0 ? 'is-up' : 'is-down'}">${
+                m.changePct >= 0 ? '+' : ''
+              }${m.changePct}%</span>
+            </span>
+          </button>`
+          )
+          .join('')}
       `;
       el.dropdown.classList.remove('hidden');
     } else {
+      const custom = val.toUpperCase();
       el.dropdown.innerHTML = `
-        <div class="p-3 text-xs text-paper-400 font-mono text-center cursor-pointer hover:bg-paper-800" onclick="window.handleTickerSelect('${val.toUpperCase()}')">
-          Analyze custom ticker "<strong>${val.toUpperCase()}</strong>" →
-        </div>
+        <button type="button" class="dropdown__empty" data-symbol="${escapeHtml(custom)}">
+          Analyse custom ticker <strong>${escapeHtml(custom)}</strong> →
+        </button>
       `;
       el.dropdown.classList.remove('hidden');
     }
   }
+
+  // Delegated selection — avoids building inline onclick handlers from data values
+  el.dropdown.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-symbol]');
+    if (row) switchTicker(row.getAttribute('data-symbol'));
+  });
+
+  // Arrow-key navigation through the results, Enter to choose
+  el.tickerSearch.addEventListener('keydown', (e) => {
+    if (el.dropdown.classList.contains('hidden')) return;
+    const rows = Array.from(el.dropdown.querySelectorAll('[data-symbol]'));
+    if (rows.length === 0) return;
+    const current = rows.findIndex(r => r.classList.contains('is-active'));
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const next =
+        e.key === 'ArrowDown'
+          ? (current + 1) % rows.length
+          : current <= 0
+            ? rows.length - 1
+            : current - 1;
+      rows.forEach(r => r.classList.remove('is-active'));
+      rows[next].classList.add('is-active');
+      rows[next].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const pick = current >= 0 ? rows[current] : rows[0];
+      if (pick) switchTicker(pick.getAttribute('data-symbol'));
+    }
+  });
+
+  el.tickerTape.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-tape-symbol]');
+    if (item) switchTicker(item.getAttribute('data-tape-symbol'));
+  });
 
   document.addEventListener('click', (e) => {
     if (!el.tickerSearch.contains(e.target) && !el.dropdown.contains(e.target)) {
@@ -838,19 +1068,27 @@ function setupEventListeners() {
   });
 
   // Timeframe Pills
+  const syncTimeframePills = () => {
+    el.timeframePills.querySelectorAll('button').forEach(b => {
+      const active = b.getAttribute('data-tf') === state.timeframe;
+      b.className = active ? 'seg-btn is-active' : 'seg-btn';
+      b.setAttribute('aria-pressed', String(active));
+    });
+  };
+
   el.timeframePills.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', () => {
       const tf = btn.getAttribute('data-tf');
-      if (tf) {
-        state.timeframe = tf;
-        el.timeframePills.querySelectorAll('button').forEach(b => {
-          b.className = 'px-2.5 py-1 rounded-lg text-paper-400 hover:text-paper-50 transition';
-        });
-        btn.className = 'px-2.5 py-1 rounded-lg bg-moss-600 text-paper-50 font-bold shadow';
-        renderChart();
-      }
+      if (!tf) return;
+      state.timeframe = tf;
+      localStorage.setItem('aura_timeframe', tf);
+      syncTimeframePills();
+      renderChart();
     });
   });
+
+  // Restore whichever timeframe was last used
+  syncTimeframePills();
 
   // Indicator Overlays Toggles
   el.toggleSma50.addEventListener('click', () => {
@@ -882,15 +1120,15 @@ function setupEventListeners() {
   if (el.btnChartArea && el.btnChartCandle) {
     el.btnChartArea.addEventListener('click', () => {
       state.chartStyle = 'area';
-      el.btnChartArea.className = 'px-2 py-0.5 rounded font-semibold bg-moss-600 text-paper-50 shadow';
-      el.btnChartCandle.className = 'px-2 py-0.5 rounded font-semibold text-paper-400 hover:text-paper-50 transition';
+      el.btnChartArea.className = 'seg-btn is-active';
+      el.btnChartCandle.className = 'seg-btn';
       renderChart();
     });
 
     el.btnChartCandle.addEventListener('click', () => {
       state.chartStyle = 'candles';
-      el.btnChartCandle.className = 'px-2 py-0.5 rounded font-semibold bg-moss-600 text-paper-50 shadow';
-      el.btnChartArea.className = 'px-2 py-0.5 rounded font-semibold text-paper-400 hover:text-paper-50 transition';
+      el.btnChartCandle.className = 'seg-btn is-active';
+      el.btnChartArea.className = 'seg-btn';
       renderChart();
     });
   }
@@ -911,18 +1149,45 @@ function setupEventListeners() {
     loadDashboardData(state.ticker);
   });
 
+  // Watchlist
+  if (el.btnWatch) {
+    el.btnWatch.addEventListener('click', () => toggleWatch(state.ticker));
+  }
+  if (el.watchlist) {
+    el.watchlist.addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-symbol]');
+      if (chip) switchTicker(chip.getAttribute('data-symbol'));
+    });
+  }
+
+  // Export the visible window as CSV
+  if (el.btnExport) {
+    el.btnExport.addEventListener('click', () => {
+      const bars = filterBarsByTimeframe(state.priceData, state.timeframe);
+      if (!bars.length) return showToast('Nothing to export yet', 'error');
+      const rows = [
+        ['date', 'open', 'high', 'low', 'close', 'volume'],
+        ...bars.map(b => [b.date, b.open, b.high, b.low, b.close, b.volume])
+      ];
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${state.ticker}-${state.timeframe}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(`Exported ${bars.length} bars for ${state.ticker}`);
+    });
+  }
+
   // API Modal Open / Close / Save
   el.btnOpenApiModal.addEventListener('click', () => {
-    el.apiModal.classList.remove('hidden');
+    openModal(el.apiModal);
+    if (el.newsApiInput) el.newsApiInput.focus();
   });
 
-  el.btnCloseApiModal.addEventListener('click', () => {
-    el.apiModal.classList.add('hidden');
-  });
-
-  el.btnCancelApiModal.addEventListener('click', () => {
-    el.apiModal.classList.add('hidden');
-  });
+  el.btnCloseApiModal.addEventListener('click', () => closeModal(el.apiModal));
+  el.btnCancelApiModal.addEventListener('click', () => closeModal(el.apiModal));
 
   el.apiKeysForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -935,20 +1200,19 @@ function setupEventListeners() {
     localStorage.setItem('aura_openrouter_key', state.apiKeys.openRouter);
 
     updateApiStatusBadge();
-    el.apiModal.classList.add('hidden');
+    closeModal(el.apiModal);
     loadDashboardData(state.ticker);
   });
 
   // S&P 500 Directory Modal Handlers
   if (el.btnOpenSp500Modal && el.sp500Modal) {
     el.btnOpenSp500Modal.addEventListener('click', () => {
-      el.sp500Modal.classList.remove('hidden');
+      openModal(el.sp500Modal);
       renderSp500DirectoryTable();
+      if (el.sp500ModalSearch) el.sp500ModalSearch.focus();
     });
 
-    el.btnCloseSp500Modal.addEventListener('click', () => {
-      el.sp500Modal.classList.add('hidden');
-    });
+    el.btnCloseSp500Modal.addEventListener('click', () => closeModal(el.sp500Modal));
 
     if (el.sp500ModalSearch) {
       el.sp500ModalSearch.addEventListener('input', renderSp500DirectoryTable);
@@ -957,6 +1221,87 @@ function setupEventListeners() {
     if (el.sp500ModalSector) {
       el.sp500ModalSector.addEventListener('change', renderSp500DirectoryTable);
     }
+
+    // Delegated row selection, mouse and keyboard
+    if (el.sp500ModalTbody) {
+      el.sp500ModalTbody.addEventListener('click', (e) => {
+        const row = e.target.closest('[data-symbol]');
+        if (row) switchTicker(row.getAttribute('data-symbol'));
+      });
+      el.sp500ModalTbody.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const row = e.target.closest('[data-symbol]');
+        if (row) {
+          e.preventDefault();
+          switchTicker(row.getAttribute('data-symbol'));
+        }
+      });
+    }
+  }
+
+  // Close any open modal on Escape, or by clicking the backdrop
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (el.apiModal && !el.apiModal.classList.contains('hidden')) closeModal(el.apiModal);
+    if (el.sp500Modal && !el.sp500Modal.classList.contains('hidden')) closeModal(el.sp500Modal);
+    if (el.dropdown) el.dropdown.classList.add('hidden');
+  });
+
+  [el.apiModal, el.sp500Modal].forEach((modal) => {
+    if (!modal) return;
+    modal.addEventListener('mousedown', (e) => {
+      if (e.target === modal) closeModal(modal);
+    });
+  });
+}
+
+// MODAL OPEN / CLOSE, restoring focus to whatever opened the dialog
+let lastFocusedBeforeModal = null;
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Keep Tab cycling inside the open dialog. */
+function trapFocus(e) {
+  if (e.key !== 'Tab') return;
+  const modal = [el.apiModal, el.sp500Modal].find(m => m && !m.classList.contains('hidden'));
+  if (!modal) return;
+
+  const nodes = Array.from(modal.querySelectorAll(FOCUSABLE)).filter(n => n.offsetParent !== null);
+  if (nodes.length === 0) return;
+
+  const first = nodes[0];
+  const last = nodes[nodes.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+function openModal(modal) {
+  if (!modal) return;
+  lastFocusedBeforeModal = document.activeElement;
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  document.addEventListener('keydown', trapFocus);
+}
+
+function closeModal(modal) {
+  if (!modal) return;
+  modal.classList.add('hidden');
+  if (
+    (!el.apiModal || el.apiModal.classList.contains('hidden')) &&
+    (!el.sp500Modal || el.sp500Modal.classList.contains('hidden'))
+  ) {
+    document.body.classList.remove('modal-open');
+    document.removeEventListener('keydown', trapFocus);
+  }
+  if (lastFocusedBeforeModal && typeof lastFocusedBeforeModal.focus === 'function') {
+    lastFocusedBeforeModal.focus();
+    lastFocusedBeforeModal = null;
   }
 }
 
@@ -987,49 +1332,45 @@ function renderSp500DirectoryTable() {
   if (filtered.length === 0) {
     el.sp500ModalTbody.innerHTML = `
       <tr>
-        <td colspan="7" class="p-8 text-center text-paper-500 font-mono text-xs">
-          No S&P 500 companies found matching filters.
-        </td>
+        <td colspan="7" class="dir__empty">No companies match these filters.</td>
       </tr>
     `;
     return;
   }
 
-  el.sp500ModalTbody.innerHTML = filtered.map(c => `
-    <tr class="hover:bg-paper-800/80 cursor-pointer transition border-b border-paper-800/40 last:border-0" onclick="window.handleSp500DirectorySelect('${c.symbol}')">
-      <td class="p-3">
-        <div class="font-bold text-paper-50 font-mono text-sm">${c.symbol}</div>
-        <div class="text-[11px] text-paper-400 font-sans">${c.name}</div>
+  el.sp500ModalTbody.innerHTML = filtered
+    .map(
+      c => `
+    <tr class="dir__row" data-symbol="${escapeHtml(c.symbol)}" tabindex="0" aria-label="Analyse ${escapeHtml(c.symbol)}">
+      <td class="dir__cell">
+        <div class="dir__sym">${escapeHtml(c.symbol)}</div>
+        <div class="dir__name">${escapeHtml(c.name)}</div>
       </td>
-      <td class="p-3">
-        <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-paper-800 text-paper-300 border border-paper-700">${c.sector}</span>
+      <td class="dir__cell"><span class="tag is-neutral">${escapeHtml(c.sector)}</span></td>
+      <td class="dir__cell dir__num dir__num--strong">$${c.price.toFixed(2)}</td>
+      <td class="dir__cell dir__num">${escapeHtml(c.cap)}</td>
+      <td class="dir__cell dir__num">${escapeHtml(String(c.pe))}</td>
+      <td class="dir__cell dir__num dir__num--target">$${c.targetPrice ? c.targetPrice.toFixed(2) : '—'}</td>
+      <td class="dir__cell dir__rating">
+        <span class="tag ${c.rating === 'Strong Buy' ? 'is-up' : c.rating === 'Hold' ? 'is-flat' : 'is-accent'}">${escapeHtml(c.rating)}</span>
       </td>
-      <td class="p-3 text-right font-bold text-paper-50">$${c.price.toFixed(2)}</td>
-      <td class="p-3 text-right text-paper-300">${c.cap}</td>
-      <td class="p-3 text-right text-paper-300">${c.pe}</td>
-      <td class="p-3 text-right text-emerald-400 font-bold">$${c.targetPrice ? c.targetPrice.toFixed(2) : '-'}</td>
-      <td class="p-3 text-center">
-        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${c.rating === 'Strong Buy' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-moss-500/10 text-moss-300 border border-moss-500/20'}">
-          ${c.rating}
-        </span>
-      </td>
-    </tr>
-  `).join('');
+    </tr>`
+    )
+    .join('');
 }
 
 function switchTicker(symbol) {
+  if (!symbol) return;
   state.ticker = symbol.toUpperCase();
   el.tickerSearch.value = '';
   el.dropdown.classList.add('hidden');
-  if (el.sp500Modal) el.sp500Modal.classList.add('hidden');
+  if (el.sp500Modal && !el.sp500Modal.classList.contains('hidden')) closeModal(el.sp500Modal);
+
+  // Keep the URL and the remembered ticker in step, so the view is shareable
+  localStorage.setItem('aura_last_ticker', state.ticker);
+  const url = new URL(window.location.href);
+  url.searchParams.set('symbol', state.ticker);
+  window.history.replaceState({}, '', url);
+
   loadDashboardData(state.ticker);
 }
-
-// Global window handles for inline onclicks
-window.handleTickerSelect = (symbol) => {
-  switchTicker(symbol);
-};
-
-window.handleSp500DirectorySelect = (symbol) => {
-  switchTicker(symbol);
-};

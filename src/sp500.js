@@ -112,28 +112,9 @@ export function searchSp500Companies(query) {
            c.sector.toUpperCase().includes(rawQ)
   );
 
-  if (exact.length > 0) return exact;
-
-  // Fallback dynamic S&P constituent builder for any valid ticker symbol typed
-  const generatedSymbol = cleanQ.slice(0, 6);
-  return [
-    {
-      symbol: generatedSymbol,
-      name: `${generatedSymbol} Corporation (S&P 500)`,
-      sector: 'S&P 500 Constituent',
-      price: Number((110 + (generatedSymbol.charCodeAt(0) * 5) % 350).toFixed(2)),
-      changePct: 1.25,
-      cap: '$85.4B',
-      pe: 22.4,
-      fwdPe: 18.2,
-      epsGrowth: '+14.2%',
-      revenueGrowth: '+10.5%',
-      fcf: '$3.2B',
-      beta: 1.05,
-      rating: 'Buy',
-      targetPrice: Number((110 * 1.2).toFixed(2))
-    }
-  ];
+  // Return the real result set — including empty. Fabricating a plausible-looking
+  // constituent for any junk query made the genuine "no match" state unreachable.
+  return exact;
 }
 
 export function getSp500CompanyDetails(symbol) {
