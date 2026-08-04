@@ -25,6 +25,9 @@ import {
   rollingCorrelation,
   rollingSharpe,
   rollingBeta,
+  minVarianceQP,
+  maxSharpeQP,
+  fetchBasketSeries,
   mean as avg
 } from './src/portfolio.js';
 
@@ -196,6 +199,7 @@ const el = {
   rollingCanvas: document.getElementById('rollingChart'),
   corrA: document.getElementById('corr-a'),
   corrB: document.getElementById('corr-b'),
+  btnLiveData: document.getElementById('btn-live-data'),
 
   // S&P 500 Directory Modal Elements
   btnOpenSp500Modal: document.getElementById('btn-open-sp500-modal'),
@@ -1441,7 +1445,8 @@ const pf = {
   rollingMetric: 'correlation',
   pairA: null,
   pairB: null,
-  data: null
+  data: null,
+  liveSeries: null
 };
 
 let rollingChartInstance = null;
@@ -1470,7 +1475,9 @@ function computePortfolio() {
   const symbols = pf.basket;
   if (symbols.length < 2) return null;
 
-  const gen = generateBasketSeries(symbols, 500);
+  const gen = pf.liveSeries && pf.liveSeries.symbols.join() === symbols.join()
+    ? pf.liveSeries.data
+    : generateBasketSeries(symbols, 500);
   const returns = {};
   for (const s of symbols) returns[s] = toSimpleReturns(gen.series[s].prices);
   const marketReturns = toSimpleReturns(gen.market.prices);
@@ -1482,11 +1489,25 @@ function computePortfolio() {
   const rf = rfValue();
   const cap = capValue();
 
+  // Real quadratic programming first — the same Goldfarb-Idnani dual method as
+  // R's quadprog::solve.QP. Projected gradient descent is kept as a fallback for
+  // the cases an active-set solver legitimately cannot answer (a cap too tight to
+  // be feasible, or no asset out-earning the risk-free rate).
+  const mvQp = minVarianceQP(cov, cap);
+  const shQp = maxSharpeQP(cov, meanDaily, rf, cap);
+  const solver = { minvar: mvQp ? 'qp' : 'gradient', sharpe: shQp ? 'qp' : 'gradient' };
+
   const methods = [
-    { key: 'equal', name: 'Equal weight', goal: 'nothing — a naive benchmark', weights: equalWeights(symbols.length) },
-    { key: 'invvol', name: 'Inverse volatility', goal: 'lower risk, no solver', weights: inverseVolWeights(cov) },
-    { key: 'minvar', name: 'Minimum variance', goal: 'lowest total risk', weights: minVarianceWeights(cov, cap) },
-    { key: 'sharpe', name: 'Maximum Sharpe', goal: 'best return per unit of risk', weights: maxSharpeWeights(cov, meanDaily, rf, cap) }
+    { key: 'equal', name: 'Equal weight', goal: 'nothing — a naive benchmark', solver: 'closed form',
+      weights: equalWeights(symbols.length) },
+    { key: 'invvol', name: 'Inverse volatility', goal: 'lower risk, no solver', solver: 'closed form',
+      weights: inverseVolWeights(cov) },
+    { key: 'minvar', name: 'Minimum variance', goal: 'lowest total risk',
+      solver: solver.minvar === 'qp' ? 'quadprog' : 'gradient',
+      weights: mvQp || minVarianceWeights(cov, cap) },
+    { key: 'sharpe', name: 'Maximum Sharpe', goal: 'best return per unit of risk',
+      solver: solver.sharpe === 'qp' ? 'quadprog' : 'gradient',
+      weights: shQp || maxSharpeWeights(cov, meanDaily, rf, cap) }
   ];
 
   for (const m of methods) {
@@ -1494,7 +1515,8 @@ function computePortfolio() {
     m.stats = portfolioStats(m.daily, rf);
   }
 
-  return { symbols, gen, returns, marketReturns, cov, corr, methods, rf, sessions: returns[symbols[0]].length };
+  return { symbols, gen, returns, marketReturns, cov, corr, methods, rf,
+           sessions: returns[symbols[0]].length, source: gen.source || 'model' };
 }
 
 function renderPortfolio() {
@@ -1510,7 +1532,12 @@ function renderPortfolio() {
   pf.data = computePortfolio();
   const d = pf.data;
 
-  if (el.pfSampleNote) el.pfSampleNote.textContent = `${d.sessions} sessions · ${d.symbols.length} names`;
+  if (el.pfSampleNote) {
+    const live = d.source === 'live';
+    el.pfSampleNote.innerHTML =
+      `${d.sessions} sessions · ${d.symbols.length} names ` +
+      `<span class="tag ${live ? 'is-up' : 'is-flat'}">${live ? 'Live' : 'Model'}</span>`;
+  }
 
   renderBasketChips();
   renderMethodCards(d);
@@ -1565,9 +1592,17 @@ function renderMethodCards(d) {
           </li>`
         )
         .join('');
+      const solverTag = m.solver === 'quadprog'
+        ? '<span class="solver-tag is-exact" title="Solved exactly by the Goldfarb–Idnani dual active-set method — the same routine as R\u2019s quadprog::solve.QP">quadprog</span>'
+        : m.solver === 'gradient'
+          ? '<span class="solver-tag is-approx" title="QP was infeasible here; fell back to projected gradient descent">gradient</span>'
+          : '<span class="solver-tag">closed form</span>';
       return `<article class="card--quiet rounded-xl2 p-4 flex flex-col gap-3">
-        <div>
-          <h3 class="text-[13px] font-bold text-ink">${escapeHtml(m.name)}</h3>
+        <div class="space-y-1">
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="text-[13px] font-bold text-ink">${escapeHtml(m.name)}</h3>
+            ${solverTag}
+          </div>
           <p class="text-[11px] text-ink-mute leading-snug">${escapeHtml(m.goal)}</p>
         </div>
         <div class="wbar" role="img" aria-label="Weight allocation for ${escapeHtml(m.name)}">${bars}</div>
@@ -1781,6 +1816,7 @@ function setupPortfolioListeners() {
     const btn = e.target.closest('[data-remove]');
     if (!btn || pf.basket.length <= 2) return;
     pf.basket = pf.basket.filter(s => s !== btn.getAttribute('data-remove'));
+    pf.liveSeries = null;
     saveBasket();
     renderPortfolio();
   });
@@ -1792,14 +1828,42 @@ function setupPortfolioListeners() {
       showToast('Basket is capped at 8 names', 'error');
     } else if (!pf.basket.includes(sym)) {
       pf.basket.push(sym);
+      pf.liveSeries = null;
       saveBasket();
       renderPortfolio();
     }
     el.basketAdd.value = '';
   });
 
+  el.btnLiveData?.addEventListener('click', async () => {
+    const key = state.apiKeys.twelveData;
+    if (!key || key.trim().length < 4) {
+      showToast('Add a Twelve Data key to pull live prices', 'error');
+      openModal(el.apiModal);
+      el.twelveDataInput?.focus();
+      return;
+    }
+    el.btnLiveData.disabled = true;
+    const original = el.btnLiveData.textContent;
+    el.btnLiveData.textContent = 'Fetching…';
+    try {
+      const data = await fetchBasketSeries(pf.basket, key);
+      pf.liveSeries = { symbols: [...pf.basket], data };
+      renderPortfolio();
+      showToast(`Live prices loaded — ${data.dates.length} aligned sessions`);
+    } catch (err) {
+      pf.liveSeries = null;
+      showToast(`Live fetch failed: ${err.message}`, 'error');
+      renderPortfolio();
+    } finally {
+      el.btnLiveData.disabled = false;
+      el.btnLiveData.textContent = original;
+    }
+  });
+
   el.btnBasketReset?.addEventListener('click', () => {
     pf.basket = [...DEFAULT_BASKET];
+    pf.liveSeries = null;
     saveBasket();
     renderPortfolio();
     showToast('Basket reset');

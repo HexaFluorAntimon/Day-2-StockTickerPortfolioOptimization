@@ -862,3 +862,20 @@ body.modal-open {
   }
   .animate-marquee { animation: none; }
 }
+
+/* Which solver produced a weighting */
+.solver-tag {
+  flex-shrink: 0;
+  padding: 1.5px 6px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+.solver-tag.is-exact  { background: var(--moss-soft); border-color: transparent; color: var(--moss-deep); }
+.solver-tag.is-approx { background: var(--ochre-soft); border-color: transparent; color: #8a5a0f; }
