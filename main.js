@@ -6,14 +6,42 @@ import {
   getCompanyFundamentals,
   getAiResearchSynthesis,
   get2026MarketNews,
-  formatMarkdownToHtml
+  formatMarkdownToHtml,
+  escapeHtml,
+  getLastDataSource
 } from './src/data.js';
 import { searchSp500Companies, SP500_COMPANIES } from './src/sp500.js';
+import {
+  generateBasketSeries,
+  toSimpleReturns,
+  covarianceMatrix,
+  correlationMatrix,
+  equalWeights,
+  inverseVolWeights,
+  minVarianceWeights,
+  maxSharpeWeights,
+  portfolioReturns,
+  portfolioStats,
+  rollingCorrelation,
+  rollingSharpe,
+  rollingBeta,
+  mean as avg
+} from './src/portfolio.js';
+
+/**
+ * Opening ticker, in priority order: ?symbol= in the URL, then the last one viewed,
+ * then the default. Makes a view shareable and bookmarkable.
+ */
+function resolveInitialTicker() {
+  const fromUrl = new URLSearchParams(window.location.search).get('symbol');
+  const candidate = (fromUrl || localStorage.getItem('aura_last_ticker') || 'NVDA').toUpperCase();
+  return /^[A-Z.\-]{1,8}$/.test(candidate) ? candidate : 'NVDA';
+}
 
 // APPLICATION STATE
 const state = {
-  ticker: 'NVDA',
-  timeframe: '3M',
+  ticker: resolveInitialTicker(),
+  timeframe: localStorage.getItem('aura_timeframe') || '3M',
   chartStyle: 'area', // 'area' or 'candles'
   priceData: [],
   metrics: null,
@@ -93,12 +121,7 @@ const el = {
   aiPresetSelect: document.getElementById('ai-preset-select'),
   btnRegenerateAi: document.getElementById('btn-regenerate-ai'),
 
-  // Technical Radar & Dedicated Sections
-  radarRsiVal: document.getElementById('radar-rsi-val'),
-  radarRsiBar: document.getElementById('radar-rsi-bar'),
-  radarRsiStatus: document.getElementById('radar-rsi-status'),
-  radarMacdVal: document.getElementById('radar-macd-val'),
-  radarMaTrend: document.getElementById('radar-ma-trend'),
+  // Technical indicator cards
   techTickerBadge: document.getElementById('tech-ticker-badge'),
   // RSI Card
   rsiBadge: document.getElementById('rsi-badge'),
@@ -147,6 +170,32 @@ const el = {
   apiStatusLabel: document.getElementById('api-status-label'),
   fundamentalsBadge: document.getElementById('fundamentals-badge'),
   btnRefresh: document.getElementById('btn-refresh'),
+  toastRegion: document.getElementById('toast-region'),
+  dataSourceBadge: document.getElementById('data-source-badge'),
+  btnWatch: document.getElementById('btn-watch'),
+  watchlist: document.getElementById('watchlist'),
+  watchlistWrap: document.getElementById('watchlist-wrap'),
+  btnExport: document.getElementById('btn-export'),
+
+  // Portfolio view
+  viewNav: document.getElementById('view-nav'),
+  viewMarkets: document.getElementById('view-markets'),
+  viewPortfolio: document.getElementById('view-portfolio'),
+  basketChips: document.getElementById('basket-chips'),
+  basketAdd: document.getElementById('basket-add'),
+  btnBasketReset: document.getElementById('btn-basket-reset'),
+  rfRate: document.getElementById('rf-rate'),
+  weightCap: document.getElementById('weight-cap'),
+  pfSampleNote: document.getElementById('pf-sample-note'),
+  methodCards: document.getElementById('method-cards'),
+  methodTable: document.getElementById('method-table'),
+  corrMatrix: document.getElementById('corr-matrix'),
+  rollingTabs: document.getElementById('rolling-tabs'),
+  rollingControls: document.getElementById('rolling-controls'),
+  rollingNote: document.getElementById('rolling-note'),
+  rollingCanvas: document.getElementById('rollingChart'),
+  corrA: document.getElementById('corr-a'),
+  corrB: document.getElementById('corr-b'),
 
   // S&P 500 Directory Modal Elements
   btnOpenSp500Modal: document.getElementById('btn-open-sp500-modal'),
@@ -163,7 +212,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initApiModalValues();
   renderTickerTape();
   renderQuickTickerPills();
+  renderWatchlist();
+  renderWatchButton();
   setupEventListeners();
+  setupPortfolioListeners();
   loadDashboardData(state.ticker);
 });
 
@@ -179,69 +231,82 @@ function updateApiStatusBadge() {
   const hasTwelve = state.apiKeys.twelveData.trim().length > 3;
   const hasRouter = state.apiKeys.openRouter.trim().length > 3;
 
-  if (hasNewsApi) {
-    el.apiStatusLabel.textContent = 'NewsAPI Live Stream Active';
-    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-cyan-400';
-    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75';
-  } else if (hasTwelve && hasRouter) {
-    el.apiStatusLabel.textContent = 'Live API Active';
-    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
-    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
-  } else if (hasTwelve || hasRouter) {
-    el.apiStatusLabel.textContent = 'Partial Key Active';
-    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-indigo-500';
-    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75';
+  const count = [hasNewsApi, hasTwelve, hasRouter].filter(Boolean).length;
+
+  // Say what is actually configured. The old copy read "Verified S&P 500 Data
+  // Active" even with zero keys, which claimed live data the app did not have.
+  if (count === 3) {
+    el.apiStatusLabel.textContent = 'All keys set';
+    el.apiStatusDot.className = 'status-dot is-ok';
+    el.apiStatusPing.className = 'status-ping is-ok';
+  } else if (count > 0) {
+    el.apiStatusLabel.textContent = `${count} of 3 keys`;
+    el.apiStatusDot.className = 'status-dot is-partial';
+    el.apiStatusPing.className = 'status-ping is-partial';
   } else {
-    el.apiStatusLabel.textContent = 'Verified S&P 500 Data Active';
-    el.apiStatusDot.className = 'relative inline-flex rounded-full h-2 w-2 bg-emerald-500';
-    el.apiStatusPing.className = 'animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75';
+    el.apiStatusLabel.textContent = 'Demo mode';
+    el.apiStatusDot.className = 'status-dot is-partial';
+    el.apiStatusPing.className = 'status-ping is-partial';
   }
+
+  const titles = [
+    `NewsAPI: ${hasNewsApi ? 'set' : 'not set'}`,
+    `Twelve Data: ${hasTwelve ? 'set' : 'not set'}`,
+    `OpenRouter: ${hasRouter ? 'set' : 'not set'}`
+  ].join(' · ');
+  el.btnOpenApiModal?.setAttribute('title', titles);
+  el.btnOpenApiModal?.setAttribute('aria-label', `API keys — ${titles}`);
 }
 
 // TOP MARKET TICKER TAPE
 function renderTickerTape() {
+  // `ticker` is only set for entries that are actually tradable symbols in the dataset.
+  // Indices and rates are display-only — clicking them used to load a bogus "S&P"/"10Y" ticker.
   const tapeItems = [
-    { symbol: 'S&P 500', price: '5,640.20', change: '+0.84%', up: true },
-    { symbol: 'NASDAQ', price: '18,210.80', change: '+1.42%', up: true },
-    { symbol: 'DOW JONES', price: '40,890.15', change: '+0.28%', up: true },
-    { symbol: 'BITCOIN 2026', price: '$94,250.00', change: '+4.12%', up: true },
-    { symbol: 'NVDA', price: '$148.25', change: '+3.42%', up: true },
-    { symbol: 'AAPL', price: '$238.90', change: '+0.85%', up: true },
-    { symbol: 'MSFT', price: '$462.10', change: '+1.25%', up: true },
-    { symbol: 'TSLA', price: '$254.60', change: '-1.15%', up: false },
-    { symbol: '10Y TREASURY', price: '3.88%', change: '-0.04', up: false }
+    { label: 'S&P 500', price: '5,640.20', change: '+0.84%', up: true },
+    { label: 'NASDAQ', price: '18,210.80', change: '+1.42%', up: true },
+    { label: 'DOW JONES', price: '40,890.15', change: '+0.28%', up: true },
+    { label: '10Y TREASURY', price: '3.88%', change: '-0.04', up: false },
+    { label: 'NVDA', ticker: 'NVDA', price: '$148.25', change: '+3.42%', up: true },
+    { label: 'AAPL', ticker: 'AAPL', price: '$238.90', change: '+0.85%', up: true },
+    { label: 'MSFT', ticker: 'MSFT', price: '$462.10', change: '+1.25%', up: true },
+    { label: 'TSLA', ticker: 'TSLA', price: '$254.60', change: '-1.15%', up: false },
+    { label: 'META', ticker: 'META', price: '$542.80', change: '+2.10%', up: true }
   ];
 
   // Duplicate for smooth seamless loop
   const list = [...tapeItems, ...tapeItems];
-  
-  el.tickerTape.innerHTML = list.map(item => `
-    <div class="flex items-center gap-2 cursor-pointer hover:text-indigo-400 transition" onclick="window.handleTickerSelect('${item.symbol.split(' ')[0]}')">
-      <span class="font-bold text-slate-300">${item.symbol}:</span>
-      <span class="text-slate-100 font-semibold">${item.price}</span>
-      <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${item.up ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
-        ${item.change}
-      </span>
-    </div>
-  `).join('<span class="text-slate-700">•</span>');
+
+  el.tickerTape.innerHTML = list
+    .map(item => {
+      const interactive = Boolean(item.ticker);
+      const tag = interactive ? 'button' : 'div';
+      const attrs = interactive
+        ? ` type="button" tabindex="-1" data-tape-symbol="${escapeHtml(item.ticker)}" class="tape-item tape-item--link"`
+        : ' class="tape-item"';
+      return `
+    <${tag}${attrs}>
+      <span class="tape-label">${escapeHtml(item.label)}</span>
+      <span class="tape-price">${escapeHtml(item.price)}</span>
+      <span class="tape-delta ${item.up ? 'is-up' : 'is-down'}">${escapeHtml(item.change)}</span>
+    </${tag}>`;
+    })
+    .join('<span class="tape-sep" aria-hidden="true">•</span>');
 }
 
 // QUICK TICKER SELECTION PILLS
 function renderQuickTickerPills() {
   el.quickTickerPills.innerHTML = POPULAR_TICKERS.map(t => {
     const isActive = t.symbol === state.ticker;
-    const colorClass = t.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400';
     return `
-      <button 
-        data-symbol="${t.symbol}"
-        class="px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition flex items-center gap-1.5 ${
-          isActive 
-            ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30' 
-            : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white'
-        }"
+      <button
+        type="button"
+        data-symbol="${escapeHtml(t.symbol)}"
+        class="chip${isActive ? ' is-active' : ''}"
+        ${isActive ? 'aria-current="true"' : ''}
       >
-        <span>${t.symbol}</span>
-        <span class="${isActive ? 'text-indigo-200' : colorClass} text-[10px]">${t.changePct >= 0 ? '+' : ''}${t.changePct}%</span>
+        <span class="chip__sym">${escapeHtml(t.symbol)}</span>
+        <span class="chip__delta ${t.changePct >= 0 ? 'is-up' : 'is-down'}">${t.changePct >= 0 ? '+' : ''}${t.changePct}%</span>
       </button>
     `;
   }).join('');
@@ -283,8 +348,12 @@ async function loadDashboardData(ticker) {
 
     // Update Quick Pills Active State
     renderQuickTickerPills();
+    renderDataSourceBadge();
+    renderWatchButton();
+    renderWatchlist();
   } catch (err) {
     console.error('Failed to load dashboard data:', err);
+    showToast(`Could not load ${state.ticker}: ${err.message}`, 'error');
   } finally {
     showChartLoader(false);
   }
@@ -295,6 +364,78 @@ function showChartLoader(show) {
     if (show) el.chartLoader.classList.remove('hidden');
     else el.chartLoader.classList.add('hidden');
   }
+}
+
+// ---------------------------------------------------------------- WATCHLIST --
+// A small persisted set of symbols, surfaced as a row of chips next to Trending.
+
+function getWatchlist() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('aura_watchlist') || '[]');
+    return Array.isArray(raw) ? raw.filter(s => typeof s === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function setWatchlist(list) {
+  localStorage.setItem('aura_watchlist', JSON.stringify([...new Set(list)].slice(0, 12)));
+}
+
+function toggleWatch(symbol) {
+  const sym = symbol.toUpperCase();
+  const list = getWatchlist();
+  const next = list.includes(sym) ? list.filter(s => s !== sym) : [...list, sym];
+  setWatchlist(next);
+  showToast(list.includes(sym) ? `${sym} removed from watchlist` : `${sym} added to watchlist`);
+  renderWatchlist();
+  renderWatchButton();
+}
+
+function renderWatchButton() {
+  if (!el.btnWatch) return;
+  const watched = getWatchlist().includes(state.ticker);
+  el.btnWatch.setAttribute('aria-pressed', String(watched));
+  el.btnWatch.classList.toggle('is-on', watched);
+  el.btnWatch.title = watched ? `Remove ${state.ticker} from watchlist` : `Add ${state.ticker} to watchlist`;
+  el.btnWatch.setAttribute('aria-label', el.btnWatch.title);
+}
+
+function renderWatchlist() {
+  if (!el.watchlist) return;
+  const list = getWatchlist();
+  el.watchlistWrap?.classList.toggle('hidden', list.length === 0);
+  el.watchlist.innerHTML = list
+    .map(
+      sym => `<button type="button" class="chip chip--sm${sym === state.ticker ? ' is-active' : ''}" data-symbol="${escapeHtml(sym)}">
+        <span class="chip__sym">${escapeHtml(sym)}</span>
+      </button>`
+    )
+    .join('');
+}
+
+/** Transient status message. Announced politely so screen readers pick it up. */
+let toastTimer = null;
+function showToast(message, kind = 'info') {
+  const region = el.toastRegion;
+  if (!region) return;
+  region.innerHTML = `<div class="toast toast--${kind}">${escapeHtml(message)}</div>`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    region.innerHTML = '';
+  }, 6000);
+}
+
+/** Reflect whether the chart is showing live vendor bars or the generated model series. */
+function renderDataSourceBadge() {
+  if (!el.dataSourceBadge) return;
+  const src = getLastDataSource();
+  const live = src.kind === 'live';
+  el.dataSourceBadge.textContent = live ? 'Live market data' : 'Model dataset';
+  el.dataSourceBadge.className = `tag ${live ? 'is-up' : 'is-flat'}`;
+  el.dataSourceBadge.title = live
+    ? 'Daily bars from Twelve Data'
+    : `Generated 2026 series — ${src.detail}. Add a Twelve Data key for live bars.`;
 }
 
 // RENDER HERO BANNER
@@ -310,15 +451,16 @@ function renderHeroBanner() {
 
   el.heroPrice.textContent = `$${m.latestPrice.toFixed(2)}`;
 
+  // Treat a change that rounds to zero as flat rather than showing "▲ +$0.00"
+  const flat = Math.abs(m.dayPctChange) < 0.005;
   const isUp = m.dayChange >= 0;
-  el.heroChangeContainer.className = `flex items-center gap-2 px-3 py-1 rounded-xl font-mono font-bold text-lg ${
-    isUp 
-      ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
-      : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'
-  }`;
-  el.heroChangeIcon.textContent = isUp ? '▲' : '▼';
-  el.heroChangeDollar.textContent = `${isUp ? '+' : ''}$${m.dayChange.toFixed(2)}`;
-  el.heroChangePct.textContent = `(${isUp ? '+' : ''}${m.dayPctChange.toFixed(2)}%)`;
+  const tone = flat ? 'is-flat' : isUp ? 'is-up' : 'is-down';
+  el.heroChangeContainer.className = `delta-chip ${tone}`;
+  el.heroChangeIcon.textContent = flat ? '■' : isUp ? '▲' : '▼';
+  el.heroChangeDollar.textContent = flat
+    ? 'Unchanged'
+    : `${isUp ? '+' : ''}$${m.dayChange.toFixed(2)}`;
+  el.heroChangePct.textContent = flat ? '' : `(${isUp ? '+' : ''}${m.dayPctChange.toFixed(2)}%)`;
 
   el.heroDayLow.textContent = `$${m.dayLow.toFixed(2)}`;
   el.heroDayHigh.textContent = `$${m.dayHigh.toFixed(2)}`;
@@ -337,8 +479,9 @@ function renderFundamentals() {
   if (!c) return;
 
   if (el.fundamentalsBadge) {
-    el.fundamentalsBadge.textContent = 'Real-Time S&P 500 Data';
-    el.fundamentalsBadge.className = 'text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-semibold';
+    // Fundamentals always come from the bundled S&P 500 reference set, never live
+    el.fundamentalsBadge.textContent = 'Reference data';
+    el.fundamentalsBadge.className = 'tag is-neutral';
   }
 
   el.mCap.textContent = c.marketCap;
@@ -348,7 +491,9 @@ function renderFundamentals() {
   el.mRevGrowth.textContent = c.revenueGrowth;
   el.mFcf.textContent = c.freeCashFlow;
   el.mBeta.textContent = c.beta;
-  el.mTarget.innerHTML = `${c.targetPrice} <span class="text-[10px] text-emerald-400">(${c.upsidePct})</span>`;
+  el.mTarget.innerHTML = `${escapeHtml(c.targetPrice)} <span class="metric__delta ${
+    String(c.upsidePct).startsWith('-') ? 'is-down' : 'is-up'
+  }">${escapeHtml(c.upsidePct)}</span>`;
 }
 
 // RENDER PRICE CHART WITH CHART.JS
@@ -356,7 +501,11 @@ function renderChart() {
   if (!state.priceData || state.priceData.length === 0) return;
 
   // Filter bars based on timeframe
-  const filteredBars = filterBarsByTimeframe(state.priceData, state.timeframe);
+  const allBars = state.priceData;
+  const filteredBars = filterBarsByTimeframe(allBars, state.timeframe);
+  // Indicators are computed over the FULL series and then sliced to the visible window,
+  // so a 50/200 SMA is correct at the left edge of the view instead of starting at null.
+  const offset = allBars.length - filteredBars.length;
 
   const labels = filteredBars.map(b => {
     const parts = b.date.split('-');
@@ -365,27 +514,46 @@ function renderChart() {
   const closes = filteredBars.map(b => b.close);
   const volumes = filteredBars.map(b => b.volume);
 
-  const sma50Values = calculateSMA(filteredBars, 20); // 20-period
-  const sma200Values = calculateSMA(filteredBars, 50);
-  const bb = calculateBollingerBands(filteredBars, 20, 2);
+  const sma50Values = calculateSMA(allBars, 50).slice(offset);
+  const sma200Values = calculateSMA(allBars, 200).slice(offset);
+  const bbFull = calculateBollingerBands(allBars, 20, 2);
+  const bb = {
+    upper: bbFull.upper.slice(offset),
+    middle: bbFull.middle.slice(offset),
+    lower: bbFull.lower.slice(offset)
+  };
 
   // Set default readout to latest bar
   updateOhlcReadout(filteredBars[filteredBars.length - 1]);
 
   const ctx = el.chartCanvas.getContext('2d');
 
-  // Create gradient fill
+  // Palette tuned for the light paper ground
+  const C = {
+    up: '#1c6e46',
+    down: '#a8492a',
+    sma50: '#2f7d4f',
+    sma200: '#d08b1f',
+    band: 'rgba(47, 111, 134, 0.55)',
+    bandFill: 'rgba(47, 111, 134, 0.08)',
+    volUp: 'rgba(47, 125, 79, 0.30)',
+    volDown: 'rgba(168, 73, 42, 0.22)',
+    grid: 'rgba(20, 53, 42, 0.07)',
+    tick: '#6b7a70'
+  };
+
+  // Area gradient — both stops in the same hue family, fading to transparent
   const isUpTrend = closes[closes.length - 1] >= closes[0];
-  const gradient = ctx.createLinearGradient(0, 0, 0, 320);
+  const gradient = ctx.createLinearGradient(0, 0, 0, el.chartCanvas.clientHeight || 360);
   if (isUpTrend) {
-    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
-    gradient.addColorStop(1, 'rgba(99, 102, 241, 0.0)');
+    gradient.addColorStop(0, 'rgba(28, 110, 70, 0.22)');
+    gradient.addColorStop(1, 'rgba(28, 110, 70, 0)');
   } else {
-    gradient.addColorStop(0, 'rgba(244, 63, 94, 0.35)');
-    gradient.addColorStop(1, 'rgba(244, 63, 94, 0.0)');
+    gradient.addColorStop(0, 'rgba(168, 73, 42, 0.20)');
+    gradient.addColorStop(1, 'rgba(168, 73, 42, 0)');
   }
 
-  const primaryColor = isUpTrend ? '#818cf8' : '#f43f5e';
+  const primaryColor = isUpTrend ? C.up : C.down;
 
   // Build datasets
   const datasets = [];
@@ -405,23 +573,25 @@ function renderChart() {
       yAxisID: 'y'
     });
   } else {
-    // High-Low Range Candle wicks / bars
+    // Wick and body share one x slot: `grouped: false` overlays them instead of
+    // placing them side by side, which is what makes it read as a candle.
     datasets.push({
       label: `${state.ticker} High-Low`,
       data: filteredBars.map(b => [b.low, b.high]),
       type: 'bar',
-      barThickness: 2,
-      backgroundColor: filteredBars.map(b => (b.close >= b.open ? '#10b981' : '#f43f5e')),
+      grouped: false,
+      barThickness: 1.5,
+      backgroundColor: filteredBars.map(b => (b.close >= b.open ? C.up : C.down)),
       yAxisID: 'y'
     });
 
-    // Candle Body (Open-Close)
     datasets.push({
       label: `${state.ticker} Candle Body`,
       data: filteredBars.map(b => [Math.min(b.open, b.close), Math.max(b.open, b.close)]),
       type: 'bar',
-      barThickness: Math.max(3, Math.min(10, 300 / filteredBars.length)),
-      backgroundColor: filteredBars.map(b => (b.close >= b.open ? '#10b981' : '#f43f5e')),
+      grouped: false,
+      barThickness: Math.max(3, Math.min(11, 420 / filteredBars.length)),
+      backgroundColor: filteredBars.map(b => (b.close >= b.open ? C.up : C.down)),
       yAxisID: 'y'
     });
   }
@@ -430,9 +600,9 @@ function renderChart() {
     datasets.push({
       label: '50 SMA',
       data: sma50Values,
-      borderColor: '#6366f1',
+      borderColor: C.sma50,
       borderWidth: 1.5,
-      borderDash: [4, 4],
+      borderDash: [5, 4],
       fill: false,
       tension: 0.2,
       pointRadius: 0,
@@ -444,9 +614,9 @@ function renderChart() {
     datasets.push({
       label: '200 SMA',
       data: sma200Values,
-      borderColor: '#f59e0b',
+      borderColor: C.sma200,
       borderWidth: 1.5,
-      borderDash: [2, 2],
+      borderDash: [2, 3],
       fill: false,
       tension: 0.2,
       pointRadius: 0,
@@ -458,7 +628,7 @@ function renderChart() {
     datasets.push({
       label: 'Upper BB',
       data: bb.upper,
-      borderColor: 'rgba(192, 132, 252, 0.6)',
+      borderColor: C.band,
       borderWidth: 1,
       fill: false,
       pointRadius: 0,
@@ -467,29 +637,42 @@ function renderChart() {
     datasets.push({
       label: 'Lower BB',
       data: bb.lower,
-      borderColor: 'rgba(192, 132, 252, 0.6)',
+      borderColor: C.band,
       borderWidth: 1,
       fill: '-1',
-      backgroundColor: 'rgba(192, 132, 252, 0.08)',
+      backgroundColor: C.bandFill,
       pointRadius: 0,
       yAxisID: 'y'
     });
   }
 
   if (state.activeOverlays.volume) {
-    const maxVol = Math.max(...volumes);
-    const normalizedVol = volumes.map(v => (v / maxVol) * (Math.max(...closes) * 0.2));
+    // Volume rides its own hidden axis so it never compresses the price scale.
     datasets.push({
       label: 'Volume',
-      data: normalizedVol,
+      data: volumes,
       type: 'bar',
-      backgroundColor: closes.map((c, i) => (i > 0 && c >= closes[i - 1] ? 'rgba(16, 185, 129, 0.25)' : 'rgba(244, 63, 94, 0.25)')),
-      yAxisID: 'y'
+      backgroundColor: closes.map((c, i) => (i > 0 && c >= closes[i - 1] ? C.volUp : C.volDown)),
+      borderWidth: 0,
+      barPercentage: 0.62,
+      categoryPercentage: 0.92,
+      yAxisID: 'yVol',
+      order: 10
     });
   }
 
   if (priceChartInstance) {
     priceChartInstance.destroy();
+  }
+
+  // Snap the readout back to the most recent bar when the pointer leaves, so it
+  // never sits frozen on whatever was last hovered.
+  if (!el.chartCanvas.dataset.leaveBound) {
+    el.chartCanvas.addEventListener('mouseleave', () => {
+      const bars = filterBarsByTimeframe(state.priceData, state.timeframe);
+      updateOhlcReadout(bars[bars.length - 1]);
+    });
+    el.chartCanvas.dataset.leaveBound = '1';
   }
 
   priceChartInstance = new Chart(ctx, {
@@ -519,15 +702,30 @@ function renderChart() {
       },
       scales: {
         x: {
-          grid: { color: 'rgba(255, 255, 255, 0.04)' },
-          ticks: { color: '#64748b', font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 12 }
+          grid: { color: C.grid, drawTicks: false },
+          border: { display: false },
+          ticks: { color: C.tick, font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 10, padding: 6 }
+        },
+        yVol: {
+          // Hidden axis for the volume bars. Capped at 4x peak volume so the bars
+          // occupy roughly the bottom quarter and never intrude on the price line.
+          display: false,
+          beginAtZero: true,
+          max: Math.max(...volumes) * 4,
+          grid: { display: false }
         },
         y: {
           position: 'right',
-          grid: { color: 'rgba(255, 255, 255, 0.04)' },
+          // Never anchor the price scale at zero — it flattens the series.
+          beginAtZero: false,
+          grace: '8%',
+          grid: { color: C.grid, drawTicks: false },
+          border: { display: false },
           ticks: {
-            color: '#64748b',
+            color: C.tick,
+            padding: 8,
             font: { family: 'JetBrains Mono', size: 11 },
+            maxTicksLimit: 7,
             callback: (val) => `$${val.toFixed(0)}`
           }
         }
@@ -546,12 +744,21 @@ function updateOhlcReadout(bar) {
   if (el.ohlcVol) el.ohlcVol.textContent = `${(bar.volume / 1000000).toFixed(1)}M`;
 }
 
+// Approximate US trading days per window
+const TIMEFRAME_BARS = { '1W': 5, '1M': 22, '3M': 65, '6M': 130, '1Y': 252 };
+
 function filterBarsByTimeframe(data, tf) {
-  if (tf === '1D') return data.slice(-2);
-  if (tf === '1W') return data.slice(-5);
-  if (tf === '1M') return data.slice(-22);
-  if (tf === 'YTD') return data.slice(-60);
-  return data; // 3M default (90 days)
+  if (!data || data.length === 0) return [];
+
+  if (tf === 'YTD') {
+    const latestYear = data[data.length - 1].date.slice(0, 4);
+    const ytd = data.filter(b => b.date >= `${latestYear}-01-01`);
+    // Fall back to ~6M if the dataset does not reach back to January
+    return ytd.length > 5 ? ytd : data.slice(-TIMEFRAME_BARS['6M']);
+  }
+
+  const bars = TIMEFRAME_BARS[tf];
+  return bars ? data.slice(-bars) : data.slice(-TIMEFRAME_BARS['3M']);
 }
 
 // RENDER TECHNICAL RADAR & DEDICATED SECTIONS
@@ -575,31 +782,29 @@ function renderTechnicalRadar() {
   // 1. Ticker badge
   if (el.techTickerBadge) el.techTickerBadge.textContent = state.ticker;
 
-  // 2. Quick Radar
-  if (el.radarRsiVal) el.radarRsiVal.textContent = rsi.value;
-  if (el.radarRsiBar) el.radarRsiBar.style.width = `${Math.min(100, Math.max(5, rsi.value))}%`;
-  if (el.radarRsiStatus) el.radarRsiStatus.textContent = rsi.status;
-  if (el.radarMacdVal) el.radarMacdVal.textContent = `${macd.histogram >= 0 ? '+' : ''}${macd.histogram} (${macd.status})`;
-  if (el.radarMaTrend) el.radarMaTrend.textContent = sma50 >= sma200 ? 'Golden Cross Active' : 'Neutral / Bearish';
-
-  // 3. Dedicated Section 1: RSI
+  // 2. RSI
   if (el.rsiValue) el.rsiValue.textContent = rsi.value;
   if (el.rsiStatusText) el.rsiStatusText.textContent = rsi.status;
-  if (el.rsiBar) el.rsiBar.style.width = `${Math.min(100, Math.max(5, rsi.value))}%`;
+  if (el.rsiBar) {
+    el.rsiBar.style.width = `${Math.min(100, Math.max(5, rsi.value))}%`;
+    // Bar colour tracks the zone, so the meter is readable without the label
+    const zone = rsi.value >= 70 ? 'is-hot' : rsi.value <= 30 ? 'is-cold' : 'is-mid';
+    el.rsiBar.className = `meter__fill ${zone}`;
+  }
 
   if (el.rsiBadge) {
     if (rsi.value >= 70) {
       el.rsiBadge.textContent = 'OVERBOUGHT';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20';
+      el.rsiBadge.className = 'tag is-down';
     } else if (rsi.value <= 30) {
       el.rsiBadge.textContent = 'OVERSOLD';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      el.rsiBadge.className = 'tag is-up';
     } else if (rsi.value >= 60) {
       el.rsiBadge.textContent = 'BULLISH';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20';
+      el.rsiBadge.className = 'tag is-accent';
     } else {
       el.rsiBadge.textContent = 'NEUTRAL';
-      el.rsiBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700';
+      el.rsiBadge.className = 'tag is-flat';
     }
   }
 
@@ -621,22 +826,22 @@ function renderTechnicalRadar() {
   // 4. Dedicated Section 2: MACD
   if (el.macdValue) {
     el.macdValue.textContent = `${macd.histogram >= 0 ? '+' : ''}${macd.histogram}`;
-    el.macdValue.className = macd.histogram >= 0 ? 'text-2xl font-mono font-extrabold text-emerald-400' : 'text-2xl font-mono font-extrabold text-rose-400';
+    el.macdValue.className = macd.histogram >= 0 ? 'stat-lg is-up' : 'stat-lg is-down';
   }
   if (el.macdStatusText) el.macdStatusText.textContent = macd.status;
   if (el.macdLineVal) el.macdLineVal.textContent = `${macd.macd >= 0 ? '+' : ''}${macd.macd}`;
   if (el.macdSignalVal) el.macdSignalVal.textContent = `${macd.signal >= 0 ? '+' : ''}${macd.signal}`;
   if (el.macdHistVal) {
     el.macdHistVal.textContent = `${macd.histogram >= 0 ? '+' : ''}${macd.histogram}`;
-    el.macdHistVal.className = macd.histogram >= 0 ? 'font-bold text-emerald-400' : 'font-bold text-rose-400';
+    el.macdHistVal.className = macd.histogram >= 0 ? 'num is-up' : 'num is-down';
   }
   if (el.macdBadge) {
     if (macd.histogram >= 0) {
       el.macdBadge.textContent = 'BULLISH CROSSOVER';
-      el.macdBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      el.macdBadge.className = 'tag is-up';
     } else {
       el.macdBadge.textContent = 'BEARISH CROSSOVER';
-      el.macdBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20';
+      el.macdBadge.className = 'tag is-down';
     }
   }
   if (el.macdComment) {
@@ -648,35 +853,44 @@ function renderTechnicalRadar() {
   }
 
   // 5. Dedicated Section 3: Moving Averages
-  const diff50 = (((latestPrice - sma50) / sma50) * 100).toFixed(1);
-  const diff200 = (((latestPrice - sma200) / sma200) * 100).toFixed(1);
+  // Keep these numeric — comparing the toFixed() string made "-0.0" test as >= 0
+  // and render "+-0.0%".
+  const diff50 = ((latestPrice - sma50) / sma50) * 100;
+  const diff200 = ((latestPrice - sma200) / sma200) * 100;
+  const fmtPct = (v) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1)}`;
 
   if (el.maSma50Val) el.maSma50Val.textContent = `$${sma50.toFixed(2)}`;
   if (el.maSma50Diff) {
-    el.maSma50Diff.textContent = `${diff50 >= 0 ? '+' : ''}${diff50}% vs 50D`;
-    el.maSma50Diff.className = diff50 >= 0 ? 'text-[10px] text-emerald-400 block font-bold' : 'text-[10px] text-rose-400 block font-bold';
+    el.maSma50Diff.textContent = `${fmtPct(diff50)}% vs 50D`;
+    el.maSma50Diff.className = diff50 >= 0 ? 'num-sm is-up block' : 'num-sm is-down block';
   }
   if (el.maSma200Val) el.maSma200Val.textContent = `$${sma200.toFixed(2)}`;
   if (el.maSma200Diff) {
-    el.maSma200Diff.textContent = `${diff200 >= 0 ? '+' : ''}${diff200}% vs 200D`;
-    el.maSma200Diff.className = diff200 >= 0 ? 'text-[10px] text-emerald-400 block font-bold' : 'text-[10px] text-rose-400 block font-bold';
+    el.maSma200Diff.textContent = `${fmtPct(diff200)}% vs 200D`;
+    el.maSma200Diff.className = diff200 >= 0 ? 'num-sm is-up block' : 'num-sm is-down block';
   }
   if (el.maTrendBadge) {
     if (sma50 >= sma200) {
       el.maTrendBadge.textContent = 'GOLDEN CROSS ACTIVE';
-      el.maTrendBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      el.maTrendBadge.className = 'tag is-up';
     } else {
       el.maTrendBadge.textContent = 'DEATH CROSS / BEARISH';
-      el.maTrendBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20';
+      el.maTrendBadge.className = 'tag is-accent';
     }
   }
   if (el.maComment) {
-    if (latestPrice >= sma50 && sma50 >= sma200) {
-      el.maComment.textContent = `Strong structural alignment: Price sits ${diff50}% above 50D SMA and ${diff200}% above 200D SMA.`;
-    } else if (latestPrice < sma50 && latestPrice >= sma200) {
-      el.maComment.textContent = `Consolidating between 50D SMA ($${sma50.toFixed(2)}) resistance and 200D SMA ($${sma200.toFixed(2)}) support.`;
+    // Branch on the actual price/average relationship — the old `else` claimed the
+    // price was below both averages in cases where it was above the 50-day.
+    const above50 = latestPrice >= sma50;
+    const above200 = latestPrice >= sma200;
+    if (above50 && above200) {
+      el.maComment.textContent = `Price sits ${fmtPct(diff50)}% against the 50D and ${fmtPct(diff200)}% against the 200D — both averages are support.`;
+    } else if (!above50 && above200) {
+      el.maComment.textContent = `Consolidating between the 50D SMA ($${sma50.toFixed(2)}) as resistance and the 200D SMA ($${sma200.toFixed(2)}) as support.`;
+    } else if (above50 && !above200) {
+      el.maComment.textContent = `Recovering above the 50D SMA ($${sma50.toFixed(2)}) but still below the 200D SMA ($${sma200.toFixed(2)}).`;
     } else {
-      el.maComment.textContent = `Trading below key moving averages; monitoring for stabilization near major support levels.`;
+      el.maComment.textContent = `Trading below both key averages; watching for stabilisation near major support.`;
     }
   }
 
@@ -693,13 +907,13 @@ function renderTechnicalRadar() {
   if (el.bbPosBadge) {
     if (pctB >= 80) {
       el.bbPosBadge.textContent = 'UPPER BAND TEST';
-      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20';
+      el.bbPosBadge.className = 'tag is-accent';
     } else if (pctB <= 20) {
       el.bbPosBadge.textContent = 'LOWER BAND TEST';
-      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20';
+      el.bbPosBadge.className = 'tag is-accent';
     } else {
       el.bbPosBadge.textContent = 'MID CHANNEL';
-      el.bbPosBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700';
+      el.bbPosBadge.className = 'tag is-flat';
     }
   }
 
@@ -710,21 +924,27 @@ function renderTechnicalRadar() {
 
 // AI RESEARCH SYNTHESIS LOADER
 async function loadAiSynthesis() {
-  el.aiNoteText.textContent = 'Generating 2026 GenAI Financial Analysis...';
+  el.aiNoteText.textContent = 'Generating research synthesis…';
   el.btnRegenerateAi.disabled = true;
 
   const preset = el.aiPresetSelect ? el.aiPresetSelect.value : 'General';
-  const aiData = await getAiResearchSynthesis(
-    state.ticker,
-    state.priceData,
-    state.metrics,
-    state.apiKeys.openRouter,
-    preset
-  );
-
-  state.aiSynthesis = aiData;
-  renderAiSynthesis();
-  el.btnRegenerateAi.disabled = false;
+  try {
+    state.aiSynthesis = await getAiResearchSynthesis(
+      state.ticker,
+      state.priceData,
+      state.metrics,
+      state.apiKeys.openRouter,
+      preset
+    );
+    renderAiSynthesis();
+  } catch (err) {
+    console.error('AI synthesis failed:', err);
+    el.aiNoteText.textContent = 'Could not generate the research note. Try again, or check your OpenRouter key.';
+    showToast(`Research synthesis failed: ${err.message}`, 'error');
+  } finally {
+    // Always re-enable, otherwise one rejection disables the button for the session
+    el.btnRegenerateAi.disabled = false;
+  }
 }
 
 function renderAiSynthesis() {
@@ -741,12 +961,20 @@ function renderAiSynthesis() {
 
   // Render bullet drivers
   if (el.aiDriversList) {
-    el.aiDriversList.innerHTML = ai.keyDrivers.map(driver => `
-      <li class="flex items-start gap-2 text-xs text-slate-300">
-        <span class="text-cyan-400 font-bold mt-0.5">•</span>
-        <span class="leading-relaxed font-sans">${driver}</span>
-      </li>
-    `).join('');
+    el.aiDriversList.innerHTML = ai.keyDrivers
+      .map(driver => `<li class="driver">${escapeHtml(driver)}</li>`)
+      .join('');
+  }
+}
+
+/** Only allow http(s) links through to an href. */
+function safeUrl(url) {
+  if (!url || url === '#') return null;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : null;
+  } catch {
+    return null;
   }
 }
 
@@ -754,24 +982,34 @@ function renderAiSynthesis() {
 async function renderNewsFeed() {
   const news = await get2026MarketNews(state.ticker, state.apiKeys.newsApi);
 
-  el.newsContainer.innerHTML = news.map(item => `
-    <div class="bg-slate-950/60 p-4 rounded-xl border border-slate-800/60 hover:border-slate-700 transition flex flex-col justify-between space-y-3">
-      <div class="space-y-1.5">
-        <div class="flex items-center justify-between text-[11px] font-mono">
-          <span class="text-indigo-400 font-bold">${item.source} ${item.isLive ? '<span class="text-[9px] text-cyan-400 bg-cyan-500/10 px-1 py-0.2 rounded border border-cyan-500/20 font-sans">LIVE NEWSAPI</span>' : ''}</span>
-          <span class="text-slate-500">${item.time}</span>
+  el.newsContainer.innerHTML = news
+    .map(item => {
+      const href = safeUrl(item.url);
+      const impactClass =
+        item.impact === 'Bullish' ? 'is-up' : item.impact === 'Bearish' ? 'is-down' : 'is-flat';
+      return `
+    <article class="news-card">
+      <div class="news-card__body">
+        <div class="news-card__meta">
+          <span class="news-card__source">${escapeHtml(item.source)}${
+            item.isLive ? '<span class="news-card__live">LIVE</span>' : ''
+          }</span>
+          <span class="news-card__time">${escapeHtml(item.time)}</span>
         </div>
-        <h4 class="text-xs font-bold text-slate-100 leading-snug">${item.title}</h4>
-        <p class="text-[11px] text-slate-400 leading-relaxed">${item.snippet || ''}</p>
+        <h4 class="news-card__title">${escapeHtml(item.title)}</h4>
+        <p class="news-card__snippet">${escapeHtml(item.snippet || '')}</p>
       </div>
-      <div class="flex items-center justify-between pt-2 border-t border-slate-800/40 text-[10px] font-mono">
-        <span class="px-2 py-0.5 rounded ${item.impact === 'Bullish' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : item.impact === 'Bearish' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-slate-800 text-slate-300'} font-bold">
-          ${item.impact}
-        </span>
-        ${item.url && item.url !== '#' ? `<a href="${item.url}" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:underline transition">Read Article →</a>` : '<span class="text-slate-500">Curated Update</span>'}
+      <div class="news-card__footer">
+        <span class="tag ${impactClass}">${escapeHtml(item.impact)}</span>
+        ${
+          href
+            ? `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" class="news-card__link">Read article →</a>`
+            : '<span class="news-card__curated">Curated update</span>'
+        }
       </div>
-    </div>
-  `).join('');
+    </article>`;
+    })
+    .join('');
 }
 
 // SEARCH & AUTOCOMPLETE HANDLERS
@@ -788,40 +1026,79 @@ function setupEventListeners() {
   });
 
   function showSearchMatches(val) {
-    const matches = searchSp500Companies(val);
+    const matches = searchSp500Companies(val).slice(0, 40);
 
     if (matches.length > 0) {
       el.dropdown.innerHTML = `
-        <div class="px-3 py-1.5 bg-slate-950 border-b border-slate-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
-          <span>S&P 500 Companies (${matches.length} found)</span>
-          <span>Click to select</span>
+        <div class="dropdown__head">
+          <span>${matches.length} match${matches.length === 1 ? '' : 'es'}</span>
+          <span>↩ to select</span>
         </div>
-        ${matches.map(m => `
-          <div class="p-3 hover:bg-slate-800/90 cursor-pointer flex items-center justify-between border-b border-slate-800/40 last:border-0 transition" onclick="window.handleTickerSelect('${m.symbol}')">
-            <div class="space-y-0.5">
-              <div class="flex items-center gap-2">
-                <span class="font-mono font-bold text-white text-sm">${m.symbol}</span>
-                <span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">${m.sector}</span>
-              </div>
-              <span class="text-xs text-slate-400 block font-medium">${m.name}</span>
-            </div>
-            <div class="text-right space-y-0.5 font-mono text-xs">
-              <div class="font-bold text-white">$${m.price.toFixed(2)} <span class="${m.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}">(${m.changePct >= 0 ? '+' : ''}${m.changePct}%)</span></div>
-              <div class="text-[10px] text-slate-400">Cap: <strong class="text-slate-200">${m.cap}</strong> • P/E: <strong class="text-slate-200">${m.pe}</strong></div>
-            </div>
-          </div>
-        `).join('')}
+        ${matches
+          .map(
+            m => `
+          <button type="button" class="dropdown__row" data-symbol="${escapeHtml(m.symbol)}">
+            <span class="dropdown__ident">
+              <span class="dropdown__sym">${escapeHtml(m.symbol)}</span>
+              <span class="dropdown__name">${escapeHtml(m.name)}</span>
+            </span>
+            <span class="dropdown__stats">
+              <span class="dropdown__price">$${m.price.toFixed(2)}</span>
+              <span class="dropdown__delta ${m.changePct >= 0 ? 'is-up' : 'is-down'}">${
+                m.changePct >= 0 ? '+' : ''
+              }${m.changePct}%</span>
+            </span>
+          </button>`
+          )
+          .join('')}
       `;
       el.dropdown.classList.remove('hidden');
     } else {
+      const custom = val.toUpperCase();
       el.dropdown.innerHTML = `
-        <div class="p-3 text-xs text-slate-400 font-mono text-center cursor-pointer hover:bg-slate-800" onclick="window.handleTickerSelect('${val.toUpperCase()}')">
-          Analyze custom ticker "<strong>${val.toUpperCase()}</strong>" →
-        </div>
+        <button type="button" class="dropdown__empty" data-symbol="${escapeHtml(custom)}">
+          Analyse custom ticker <strong>${escapeHtml(custom)}</strong> →
+        </button>
       `;
       el.dropdown.classList.remove('hidden');
     }
   }
+
+  // Delegated selection — avoids building inline onclick handlers from data values
+  el.dropdown.addEventListener('click', (e) => {
+    const row = e.target.closest('[data-symbol]');
+    if (row) switchTicker(row.getAttribute('data-symbol'));
+  });
+
+  // Arrow-key navigation through the results, Enter to choose
+  el.tickerSearch.addEventListener('keydown', (e) => {
+    if (el.dropdown.classList.contains('hidden')) return;
+    const rows = Array.from(el.dropdown.querySelectorAll('[data-symbol]'));
+    if (rows.length === 0) return;
+    const current = rows.findIndex(r => r.classList.contains('is-active'));
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const next =
+        e.key === 'ArrowDown'
+          ? (current + 1) % rows.length
+          : current <= 0
+            ? rows.length - 1
+            : current - 1;
+      rows.forEach(r => r.classList.remove('is-active'));
+      rows[next].classList.add('is-active');
+      rows[next].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const pick = current >= 0 ? rows[current] : rows[0];
+      if (pick) switchTicker(pick.getAttribute('data-symbol'));
+    }
+  });
+
+  el.tickerTape.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-tape-symbol]');
+    if (item) switchTicker(item.getAttribute('data-tape-symbol'));
+  });
 
   document.addEventListener('click', (e) => {
     if (!el.tickerSearch.contains(e.target) && !el.dropdown.contains(e.target)) {
@@ -831,26 +1108,41 @@ function setupEventListeners() {
 
   // Global Keyboard Shortcut Cmd+K / Ctrl+K
   document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
+    if (!((e.metaKey || e.ctrlKey) && e.key === 'k')) return;
+    e.preventDefault();
+    // The header search is hidden on narrow viewports; focusing a display:none
+    // input does nothing, so fall back to the directory, which has its own search.
+    if (el.tickerSearch.offsetParent !== null) {
       el.tickerSearch.focus();
+    } else if (el.sp500Modal) {
+      openModal(el.sp500Modal);
+      renderSp500DirectoryTable();
+      el.sp500ModalSearch?.focus();
     }
   });
 
   // Timeframe Pills
+  const syncTimeframePills = () => {
+    el.timeframePills.querySelectorAll('button').forEach(b => {
+      const active = b.getAttribute('data-tf') === state.timeframe;
+      b.className = active ? 'seg-btn is-active' : 'seg-btn';
+      b.setAttribute('aria-pressed', String(active));
+    });
+  };
+
   el.timeframePills.querySelectorAll('button').forEach(btn => {
     btn.addEventListener('click', () => {
       const tf = btn.getAttribute('data-tf');
-      if (tf) {
-        state.timeframe = tf;
-        el.timeframePills.querySelectorAll('button').forEach(b => {
-          b.className = 'px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition';
-        });
-        btn.className = 'px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold shadow';
-        renderChart();
-      }
+      if (!tf) return;
+      state.timeframe = tf;
+      localStorage.setItem('aura_timeframe', tf);
+      syncTimeframePills();
+      renderChart();
     });
   });
+
+  // Restore whichever timeframe was last used
+  syncTimeframePills();
 
   // Indicator Overlays Toggles
   el.toggleSma50.addEventListener('click', () => {
@@ -882,15 +1174,15 @@ function setupEventListeners() {
   if (el.btnChartArea && el.btnChartCandle) {
     el.btnChartArea.addEventListener('click', () => {
       state.chartStyle = 'area';
-      el.btnChartArea.className = 'px-2 py-0.5 rounded font-semibold bg-indigo-600 text-white shadow';
-      el.btnChartCandle.className = 'px-2 py-0.5 rounded font-semibold text-slate-400 hover:text-white transition';
+      el.btnChartArea.className = 'seg-btn is-active';
+      el.btnChartCandle.className = 'seg-btn';
       renderChart();
     });
 
     el.btnChartCandle.addEventListener('click', () => {
       state.chartStyle = 'candles';
-      el.btnChartCandle.className = 'px-2 py-0.5 rounded font-semibold bg-indigo-600 text-white shadow';
-      el.btnChartArea.className = 'px-2 py-0.5 rounded font-semibold text-slate-400 hover:text-white transition';
+      el.btnChartCandle.className = 'seg-btn is-active';
+      el.btnChartArea.className = 'seg-btn';
       renderChart();
     });
   }
@@ -911,18 +1203,45 @@ function setupEventListeners() {
     loadDashboardData(state.ticker);
   });
 
+  // Watchlist
+  if (el.btnWatch) {
+    el.btnWatch.addEventListener('click', () => toggleWatch(state.ticker));
+  }
+  if (el.watchlist) {
+    el.watchlist.addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-symbol]');
+      if (chip) switchTicker(chip.getAttribute('data-symbol'));
+    });
+  }
+
+  // Export the visible window as CSV
+  if (el.btnExport) {
+    el.btnExport.addEventListener('click', () => {
+      const bars = filterBarsByTimeframe(state.priceData, state.timeframe);
+      if (!bars.length) return showToast('Nothing to export yet', 'error');
+      const rows = [
+        ['date', 'open', 'high', 'low', 'close', 'volume'],
+        ...bars.map(b => [b.date, b.open, b.high, b.low, b.close, b.volume])
+      ];
+      const csv = rows.map(r => r.join(',')).join('\n');
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${state.ticker}-${state.timeframe}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(`Exported ${bars.length} bars for ${state.ticker}`);
+    });
+  }
+
   // API Modal Open / Close / Save
   el.btnOpenApiModal.addEventListener('click', () => {
-    el.apiModal.classList.remove('hidden');
+    openModal(el.apiModal);
+    if (el.newsApiInput) el.newsApiInput.focus();
   });
 
-  el.btnCloseApiModal.addEventListener('click', () => {
-    el.apiModal.classList.add('hidden');
-  });
-
-  el.btnCancelApiModal.addEventListener('click', () => {
-    el.apiModal.classList.add('hidden');
-  });
+  el.btnCloseApiModal.addEventListener('click', () => closeModal(el.apiModal));
+  el.btnCancelApiModal.addEventListener('click', () => closeModal(el.apiModal));
 
   el.apiKeysForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -935,20 +1254,19 @@ function setupEventListeners() {
     localStorage.setItem('aura_openrouter_key', state.apiKeys.openRouter);
 
     updateApiStatusBadge();
-    el.apiModal.classList.add('hidden');
+    closeModal(el.apiModal);
     loadDashboardData(state.ticker);
   });
 
   // S&P 500 Directory Modal Handlers
   if (el.btnOpenSp500Modal && el.sp500Modal) {
     el.btnOpenSp500Modal.addEventListener('click', () => {
-      el.sp500Modal.classList.remove('hidden');
+      openModal(el.sp500Modal);
       renderSp500DirectoryTable();
+      if (el.sp500ModalSearch) el.sp500ModalSearch.focus();
     });
 
-    el.btnCloseSp500Modal.addEventListener('click', () => {
-      el.sp500Modal.classList.add('hidden');
-    });
+    el.btnCloseSp500Modal.addEventListener('click', () => closeModal(el.sp500Modal));
 
     if (el.sp500ModalSearch) {
       el.sp500ModalSearch.addEventListener('input', renderSp500DirectoryTable);
@@ -957,6 +1275,87 @@ function setupEventListeners() {
     if (el.sp500ModalSector) {
       el.sp500ModalSector.addEventListener('change', renderSp500DirectoryTable);
     }
+
+    // Delegated row selection, mouse and keyboard
+    if (el.sp500ModalTbody) {
+      el.sp500ModalTbody.addEventListener('click', (e) => {
+        const row = e.target.closest('[data-symbol]');
+        if (row) switchTicker(row.getAttribute('data-symbol'));
+      });
+      el.sp500ModalTbody.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const row = e.target.closest('[data-symbol]');
+        if (row) {
+          e.preventDefault();
+          switchTicker(row.getAttribute('data-symbol'));
+        }
+      });
+    }
+  }
+
+  // Close any open modal on Escape, or by clicking the backdrop
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (el.apiModal && !el.apiModal.classList.contains('hidden')) closeModal(el.apiModal);
+    if (el.sp500Modal && !el.sp500Modal.classList.contains('hidden')) closeModal(el.sp500Modal);
+    if (el.dropdown) el.dropdown.classList.add('hidden');
+  });
+
+  [el.apiModal, el.sp500Modal].forEach((modal) => {
+    if (!modal) return;
+    modal.addEventListener('mousedown', (e) => {
+      if (e.target === modal) closeModal(modal);
+    });
+  });
+}
+
+// MODAL OPEN / CLOSE, restoring focus to whatever opened the dialog
+let lastFocusedBeforeModal = null;
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Keep Tab cycling inside the open dialog. */
+function trapFocus(e) {
+  if (e.key !== 'Tab') return;
+  const modal = [el.apiModal, el.sp500Modal].find(m => m && !m.classList.contains('hidden'));
+  if (!modal) return;
+
+  const nodes = Array.from(modal.querySelectorAll(FOCUSABLE)).filter(n => n.offsetParent !== null);
+  if (nodes.length === 0) return;
+
+  const first = nodes[0];
+  const last = nodes[nodes.length - 1];
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+function openModal(modal) {
+  if (!modal) return;
+  lastFocusedBeforeModal = document.activeElement;
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+  document.addEventListener('keydown', trapFocus);
+}
+
+function closeModal(modal) {
+  if (!modal) return;
+  modal.classList.add('hidden');
+  if (
+    (!el.apiModal || el.apiModal.classList.contains('hidden')) &&
+    (!el.sp500Modal || el.sp500Modal.classList.contains('hidden'))
+  ) {
+    document.body.classList.remove('modal-open');
+    document.removeEventListener('keydown', trapFocus);
+  }
+  if (lastFocusedBeforeModal && typeof lastFocusedBeforeModal.focus === 'function') {
+    lastFocusedBeforeModal.focus();
+    lastFocusedBeforeModal = null;
   }
 }
 
@@ -987,49 +1386,447 @@ function renderSp500DirectoryTable() {
   if (filtered.length === 0) {
     el.sp500ModalTbody.innerHTML = `
       <tr>
-        <td colspan="7" class="p-8 text-center text-slate-500 font-mono text-xs">
-          No S&P 500 companies found matching filters.
-        </td>
+        <td colspan="7" class="dir__empty">No companies match these filters.</td>
       </tr>
     `;
     return;
   }
 
-  el.sp500ModalTbody.innerHTML = filtered.map(c => `
-    <tr class="hover:bg-slate-800/80 cursor-pointer transition border-b border-slate-800/40 last:border-0" onclick="window.handleSp500DirectorySelect('${c.symbol}')">
-      <td class="p-3">
-        <div class="font-bold text-white font-mono text-sm">${c.symbol}</div>
-        <div class="text-[11px] text-slate-400 font-sans">${c.name}</div>
+  el.sp500ModalTbody.innerHTML = filtered
+    .map(
+      c => `
+    <tr class="dir__row" data-symbol="${escapeHtml(c.symbol)}" tabindex="0" aria-label="Analyse ${escapeHtml(c.symbol)}">
+      <td class="dir__cell">
+        <div class="dir__sym">${escapeHtml(c.symbol)}</div>
+        <div class="dir__name">${escapeHtml(c.name)}</div>
       </td>
-      <td class="p-3">
-        <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${c.sector}</span>
+      <td class="dir__cell"><span class="tag is-neutral">${escapeHtml(c.sector)}</span></td>
+      <td class="dir__cell dir__num dir__num--strong">$${c.price.toFixed(2)}</td>
+      <td class="dir__cell dir__num">${escapeHtml(c.cap)}</td>
+      <td class="dir__cell dir__num">${escapeHtml(String(c.pe))}</td>
+      <td class="dir__cell dir__num ${c.targetPrice && c.targetPrice >= c.price ? 'is-up' : c.targetPrice ? 'is-down' : ''}">${c.targetPrice ? '$' + c.targetPrice.toFixed(2) : '—'}</td>
+      <td class="dir__cell dir__rating">
+        <span class="tag ${c.rating === 'Strong Buy' ? 'is-up' : c.rating === 'Hold' ? 'is-flat' : 'is-accent'}">${escapeHtml(c.rating)}</span>
       </td>
-      <td class="p-3 text-right font-bold text-white">$${c.price.toFixed(2)}</td>
-      <td class="p-3 text-right text-slate-300">${c.cap}</td>
-      <td class="p-3 text-right text-slate-300">${c.pe}</td>
-      <td class="p-3 text-right text-emerald-400 font-bold">$${c.targetPrice ? c.targetPrice.toFixed(2) : '-'}</td>
-      <td class="p-3 text-center">
-        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${c.rating === 'Strong Buy' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/20'}">
-          ${c.rating}
-        </span>
-      </td>
-    </tr>
-  `).join('');
+    </tr>`
+    )
+    .join('');
 }
 
 function switchTicker(symbol) {
+  if (!symbol) return;
   state.ticker = symbol.toUpperCase();
   el.tickerSearch.value = '';
   el.dropdown.classList.add('hidden');
-  if (el.sp500Modal) el.sp500Modal.classList.add('hidden');
+  if (el.sp500Modal && !el.sp500Modal.classList.contains('hidden')) closeModal(el.sp500Modal);
+
+  // Keep the URL and the remembered ticker in step, so the view is shareable
+  localStorage.setItem('aura_last_ticker', state.ticker);
+  const url = new URL(window.location.href);
+  url.searchParams.set('symbol', state.ticker);
+  window.history.replaceState({}, '', url);
+
   loadDashboardData(state.ticker);
 }
 
-// Global window handles for inline onclicks
-window.handleTickerSelect = (symbol) => {
-  switchTicker(symbol);
+/* ==========================================================================
+   PORTFOLIO VIEW
+   Prices -> simple returns -> covariance -> weights, plus rolling diagnostics.
+   ========================================================================== */
+
+const DEFAULT_BASKET = ['NVDA', 'AAPL', 'MSFT', 'JPM', 'LLY', 'XOM'];
+
+const pf = {
+  basket: loadBasket(),
+  rollingMetric: 'correlation',
+  pairA: null,
+  pairB: null,
+  data: null
 };
 
-window.handleSp500DirectorySelect = (symbol) => {
-  switchTicker(symbol);
-};
+let rollingChartInstance = null;
+
+function loadBasket() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('aura_basket') || 'null');
+    if (Array.isArray(raw) && raw.length >= 2) return raw.slice(0, 8);
+  } catch {
+    /* fall through to default */
+  }
+  return [...DEFAULT_BASKET];
+}
+
+function saveBasket() {
+  localStorage.setItem('aura_basket', JSON.stringify(pf.basket));
+}
+
+const rfValue = () => Math.max(0, Number(el.rfRate?.value ?? 3.5)) / 100;
+const capValue = () => Math.min(1, Math.max(0.1, Number(el.weightCap?.value ?? 40) / 100));
+
+const pct = (v, digits = 2) => `${v >= 0 ? '' : '−'}${Math.abs(v * 100).toFixed(digits)}%`;
+
+/** Recompute everything from the current basket and inputs. */
+function computePortfolio() {
+  const symbols = pf.basket;
+  if (symbols.length < 2) return null;
+
+  const gen = generateBasketSeries(symbols, 500);
+  const returns = {};
+  for (const s of symbols) returns[s] = toSimpleReturns(gen.series[s].prices);
+  const marketReturns = toSimpleReturns(gen.market.prices);
+
+  const cov = covarianceMatrix(returns, symbols);
+  const corr = correlationMatrix(returns, symbols);
+  const meanDaily = symbols.map(s => avg(returns[s]));
+
+  const rf = rfValue();
+  const cap = capValue();
+
+  const methods = [
+    { key: 'equal', name: 'Equal weight', goal: 'nothing — a naive benchmark', weights: equalWeights(symbols.length) },
+    { key: 'invvol', name: 'Inverse volatility', goal: 'lower risk, no solver', weights: inverseVolWeights(cov) },
+    { key: 'minvar', name: 'Minimum variance', goal: 'lowest total risk', weights: minVarianceWeights(cov, cap) },
+    { key: 'sharpe', name: 'Maximum Sharpe', goal: 'best return per unit of risk', weights: maxSharpeWeights(cov, meanDaily, rf, cap) }
+  ];
+
+  for (const m of methods) {
+    m.daily = portfolioReturns(returns, symbols, m.weights);
+    m.stats = portfolioStats(m.daily, rf);
+  }
+
+  return { symbols, gen, returns, marketReturns, cov, corr, methods, rf, sessions: returns[symbols[0]].length };
+}
+
+function renderPortfolio() {
+  if (!el.viewPortfolio) return;
+  if (pf.basket.length < 2) {
+    el.methodCards.innerHTML = '<p class="text-[13px] text-ink-mute">Add at least two companies to the basket.</p>';
+    el.methodTable.innerHTML = '';
+    el.corrMatrix.innerHTML = '';
+    renderBasketChips();
+    return;
+  }
+
+  pf.data = computePortfolio();
+  const d = pf.data;
+
+  if (el.pfSampleNote) el.pfSampleNote.textContent = `${d.sessions} sessions · ${d.symbols.length} names`;
+
+  renderBasketChips();
+  renderMethodCards(d);
+  renderMethodTable(d);
+  renderCorrMatrix(d);
+  syncPairSelects(d);
+  renderRollingChart(d);
+}
+
+function renderBasketChips() {
+  if (!el.basketChips) return;
+  el.basketChips.innerHTML = pf.basket
+    .map(
+      sym => `<span class="basket-chip">
+        <span class="chip__sym">${escapeHtml(sym)}</span>
+        <button type="button" class="basket-chip__x" data-remove="${escapeHtml(sym)}"
+          aria-label="Remove ${escapeHtml(sym)} from basket" ${pf.basket.length <= 2 ? 'disabled' : ''}>×</button>
+      </span>`
+    )
+    .join('');
+
+  // Keep the picker in sync with what is already held
+  if (el.basketAdd) {
+    const options = SP500_COMPANIES.filter(c => !pf.basket.includes(c.symbol))
+      .map(c => `<option value="${escapeHtml(c.symbol)}">${escapeHtml(c.symbol)} — ${escapeHtml(c.name)}</option>`)
+      .join('');
+    el.basketAdd.innerHTML = `<option value="">Add a company…</option>${options}`;
+    el.basketAdd.disabled = pf.basket.length >= 8;
+  }
+}
+
+function renderMethodCards(d) {
+  const palette = ['#24693b', '#4c9f5e', '#8cc096', '#d08b1f', '#b3542f', '#2f6f86', '#8b9477', '#14352a'];
+  el.methodCards.innerHTML = d.methods
+    .map(m => {
+      const bars = d.symbols
+        .map((s, i) => {
+          const w = m.weights[i];
+          if (w < 0.001) return '';
+          return `<span class="wbar__seg" style="width:${(w * 100).toFixed(2)}%;background:${palette[i % palette.length]}" title="${escapeHtml(s)} ${(w * 100).toFixed(1)}%"></span>`;
+        })
+        .join('');
+      const rows = d.symbols
+        .map((s, i) => ({ s, w: m.weights[i], c: palette[i % palette.length] }))
+        .filter(x => x.w >= 0.001)
+        .sort((a, b) => b.w - a.w)
+        .map(
+          x => `<li class="wlist__row">
+            <span class="wlist__dot" style="background:${x.c}"></span>
+            <span class="wlist__sym">${escapeHtml(x.s)}</span>
+            <span class="wlist__pct">${(x.w * 100).toFixed(1)}%</span>
+          </li>`
+        )
+        .join('');
+      return `<article class="card--quiet rounded-xl2 p-4 flex flex-col gap-3">
+        <div>
+          <h3 class="text-[13px] font-bold text-ink">${escapeHtml(m.name)}</h3>
+          <p class="text-[11px] text-ink-mute leading-snug">${escapeHtml(m.goal)}</p>
+        </div>
+        <div class="wbar" role="img" aria-label="Weight allocation for ${escapeHtml(m.name)}">${bars}</div>
+        <ul class="wlist">${rows}</ul>
+      </article>`;
+    })
+    .join('');
+}
+
+function renderMethodTable(d) {
+  const bestVol = Math.min(...d.methods.map(m => m.stats.annVol));
+  const bestSharpe = Math.max(...d.methods.map(m => m.stats.sharpe));
+
+  el.methodTable.innerHTML = d.methods
+    .map(m => {
+      const volWin = Math.abs(m.stats.annVol - bestVol) < 1e-9;
+      const shWin = Math.abs(m.stats.sharpe - bestSharpe) < 1e-9;
+      return `<tr class="border-b border-line last:border-0">
+        <td class="py-2.5 pr-3 text-[13px] font-semibold text-ink">${escapeHtml(m.name)}</td>
+        <td class="py-2.5 px-3 text-[12px] text-ink-mute">${escapeHtml(m.goal)}</td>
+        <td class="py-2.5 px-3 text-right num text-[12.5px] ${m.stats.annReturn >= 0 ? 'is-up' : 'is-down'}">${pct(m.stats.annReturn)}</td>
+        <td class="py-2.5 px-3 text-right num text-[12.5px] ${volWin ? 'cell-win' : 'text-ink'}">${pct(m.stats.annVol)}${volWin ? ' <span class="cell-win__mark">best</span>' : ''}</td>
+        <td class="py-2.5 pl-3 text-right num text-[12.5px] ${shWin ? 'cell-win' : 'text-ink'}">${m.stats.sharpe.toFixed(2)}${shWin ? ' <span class="cell-win__mark">best</span>' : ''}</td>
+      </tr>`;
+    })
+    .join('');
+}
+
+function renderCorrMatrix(d) {
+  const { symbols, corr } = d;
+  // Diverging scale pivoted at 0.45 — a typical large-cap equity correlation.
+  // Below that a pair is genuinely diversifying (green); well above it the pair
+  // is moving together (clay). A flat green/red split at zero would paint every
+  // ordinary 0.5 correlation as alarming.
+  const GREEN = [47, 125, 79];
+  const NEUTRAL = [238, 240, 228];
+  const CLAY = [176, 84, 47];
+  const lerp = (a, b, t) => a.map((x, i) => Math.round(x + (b[i] - x) * t));
+  const cellColor = (v) => {
+    const c = v <= 0.45
+      ? lerp(GREEN, NEUTRAL, Math.max(0, Math.min(1, (v + 1) / 1.45)))
+      : lerp(NEUTRAL, CLAY, Math.max(0, Math.min(1, (v - 0.45) / 0.55)));
+    return `rgb(${c[0]},${c[1]},${c[2]})`;
+  };
+
+  const head = `<tr><th class="corr__corner"></th>${symbols
+    .map(s => `<th scope="col" class="corr__head">${escapeHtml(s)}</th>`)
+    .join('')}</tr>`;
+
+  const body = symbols
+    .map(
+      (si, i) => `<tr>
+        <th scope="row" class="corr__row-head">${escapeHtml(si)}</th>
+        ${symbols
+          .map((sj, j) => {
+            const v = corr[i][j];
+            const self = i === j;
+            return `<td class="corr__cell${self ? ' is-self' : ''}" style="${self ? '' : `background:${cellColor(v)}`}"
+              title="${escapeHtml(si)} vs ${escapeHtml(sj)}: ${v.toFixed(2)}">${v.toFixed(2)}</td>`;
+          })
+          .join('')}
+      </tr>`
+    )
+    .join('');
+
+  const offDiag = [];
+  corr.forEach((row, i) => row.forEach((v, j) => { if (i < j) offDiag.push(v); }));
+  const meanCorr = offDiag.length ? avg(offDiag) : 0;
+
+  el.corrMatrix.innerHTML = `<table class="corr"><caption class="sr-only">Correlation of daily returns between basket members</caption>${head}${body}</table>
+    <p class="text-[11.5px] text-ink-mute mt-3">
+      Average pairwise correlation <strong class="font-mono text-ink">${meanCorr.toFixed(2)}</strong>.
+      Lower is better for diversification.
+    </p>`;
+}
+
+function syncPairSelects(d) {
+  if (!el.corrA || !el.corrB) return;
+  if (!d.symbols.includes(pf.pairA)) pf.pairA = d.symbols[0];
+  if (!d.symbols.includes(pf.pairB) || pf.pairB === pf.pairA) {
+    pf.pairB = d.symbols.find(s => s !== pf.pairA) || d.symbols[0];
+  }
+  const opts = (sel) =>
+    d.symbols.map(s => `<option value="${escapeHtml(s)}"${s === sel ? ' selected' : ''}>${escapeHtml(s)}</option>`).join('');
+  el.corrA.innerHTML = opts(pf.pairA);
+  el.corrB.innerHTML = opts(pf.pairB);
+}
+
+function renderRollingChart(d) {
+  if (!el.rollingCanvas) return;
+  const labels = d.gen.dates.slice(1).map(x => x.slice(2, 7));
+  const C = { w30: '#d08b1f', w90: '#24693b', zero: 'rgba(20,53,42,0.25)', grid: 'rgba(20,53,42,0.07)', tick: '#516652' };
+
+  let datasets = [];
+  let note = '';
+  let suggested = {};
+
+  if (pf.rollingMetric === 'correlation') {
+    const a = d.returns[pf.pairA];
+    const b = d.returns[pf.pairB];
+    datasets = [
+      { label: '30-day', data: rollingCorrelation(a, b, 30), borderColor: C.w30, borderWidth: 1.4, pointRadius: 0, tension: 0.15, spanGaps: false },
+      { label: '90-day', data: rollingCorrelation(a, b, 90), borderColor: C.w90, borderWidth: 2.4, pointRadius: 0, tension: 0.15, spanGaps: false }
+    ];
+    note = `Rolling correlation of ${pf.pairA} against ${pf.pairB}. The 30-day window is reactive and noisy; the 90-day window is smooth and slow. Watch both climb in the stressed second half — correlations drift toward 1 exactly when diversification is needed most, which a single averaged number never reveals.`;
+    suggested = { min: -1, max: 1 };
+  } else if (pf.rollingMetric === 'sharpe') {
+    const eq = d.methods.find(m => m.key === 'equal');
+    const mv = d.methods.find(m => m.key === 'minvar');
+    datasets = [
+      { label: 'Equal weight', data: rollingSharpe(eq.daily, d.rf, 90), borderColor: C.w30, borderWidth: 1.6, pointRadius: 0, tension: 0.15 },
+      { label: 'Minimum variance', data: rollingSharpe(mv.daily, d.rf, 90), borderColor: C.w90, borderWidth: 2.4, pointRadius: 0, tension: 0.15 }
+    ];
+    note = 'Rolling 90-day Sharpe, annualised by √252. A reading near or below zero means the portfolio was not being paid for the risk it carried.';
+  } else {
+    const eq = d.methods.find(m => m.key === 'equal');
+    const mv = d.methods.find(m => m.key === 'minvar');
+    datasets = [
+      { label: 'Equal weight', data: rollingBeta(eq.daily, d.marketReturns, 90), borderColor: C.w30, borderWidth: 1.6, pointRadius: 0, tension: 0.15 },
+      { label: 'Minimum variance', data: rollingBeta(mv.daily, d.marketReturns, 90), borderColor: C.w90, borderWidth: 2.4, pointRadius: 0, tension: 0.15 }
+    ];
+    note = 'Rolling 90-day beta against SPY. 1.0 moves with the market, above is more volatile, below is calmer. Beta drifting while your holdings sit still means your risk profile is changing underneath you.';
+  }
+
+  if (el.rollingNote) el.rollingNote.textContent = note;
+  if (el.rollingControls) el.rollingControls.classList.toggle('hidden', pf.rollingMetric !== 'correlation');
+  if (el.rollingControls && pf.rollingMetric === 'correlation') el.rollingControls.classList.add('flex');
+
+  if (rollingChartInstance) rollingChartInstance.destroy();
+  rollingChartInstance = new Chart(el.rollingCanvas.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          align: 'end',
+          labels: { boxWidth: 10, boxHeight: 10, usePointStyle: true, pointStyle: 'rectRounded',
+                    color: '#46574c', font: { family: 'Archivo', size: 11 } }
+        },
+        tooltip: {
+          backgroundColor: '#14352a', titleFont: { family: 'JetBrains Mono', size: 11 },
+          bodyFont: { family: 'JetBrains Mono', size: 11 }, padding: 9, displayColors: true,
+          callbacks: { label: (c) => ` ${c.dataset.label}: ${c.parsed.y === null ? '—' : c.parsed.y.toFixed(2)}` }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: C.grid, drawTicks: false },
+          border: { display: false },
+          ticks: { color: C.tick, font: { family: 'JetBrains Mono', size: 10 }, maxTicksLimit: 10, padding: 6 }
+        },
+        y: {
+          position: 'right',
+          ...suggested,
+          grid: { color: C.grid, drawTicks: false },
+          border: { display: false },
+          ticks: { color: C.tick, font: { family: 'JetBrains Mono', size: 11 }, padding: 8,
+                   callback: (v) => Number(v).toFixed(1) }
+        }
+      }
+    }
+  });
+}
+
+/* ------------------------------------------------------------ view routing --- */
+
+function currentView() {
+  return window.location.hash.replace('#', '') === 'portfolio' ? 'portfolio' : 'markets';
+}
+
+function setView(view, { push = true } = {}) {
+  const target = view === 'portfolio' ? 'portfolio' : 'markets';
+  el.viewMarkets?.classList.toggle('hidden', target !== 'markets');
+  el.viewPortfolio?.classList.toggle('hidden', target !== 'portfolio');
+
+  el.viewNav?.querySelectorAll('button').forEach(b => {
+    const active = b.getAttribute('data-view') === target;
+    b.className = active ? 'seg-btn is-active' : 'seg-btn';
+    b.setAttribute('aria-current', active ? 'page' : 'false');
+  });
+
+  if (push) {
+    const hash = target === 'portfolio' ? '#portfolio' : '';
+    if ((window.location.hash || '') !== hash) {
+      history.replaceState({}, '', `${window.location.pathname}${window.location.search}${hash}`);
+    }
+  }
+
+  if (target === 'portfolio' && !pf.data) renderPortfolio();
+  // Chart.js needs a resize once its container stops being display:none
+  if (target === 'portfolio' && rollingChartInstance) rollingChartInstance.resize();
+  if (target === 'markets' && priceChartInstance) priceChartInstance.resize();
+}
+
+function setupPortfolioListeners() {
+  if (!el.viewPortfolio) return;
+
+  el.viewNav?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-view]');
+    if (btn) setView(btn.getAttribute('data-view'));
+  });
+
+  window.addEventListener('hashchange', () => setView(currentView(), { push: false }));
+
+  el.basketChips?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-remove]');
+    if (!btn || pf.basket.length <= 2) return;
+    pf.basket = pf.basket.filter(s => s !== btn.getAttribute('data-remove'));
+    saveBasket();
+    renderPortfolio();
+  });
+
+  el.basketAdd?.addEventListener('change', () => {
+    const sym = el.basketAdd.value;
+    if (!sym) return;
+    if (pf.basket.length >= 8) {
+      showToast('Basket is capped at 8 names', 'error');
+    } else if (!pf.basket.includes(sym)) {
+      pf.basket.push(sym);
+      saveBasket();
+      renderPortfolio();
+    }
+    el.basketAdd.value = '';
+  });
+
+  el.btnBasketReset?.addEventListener('click', () => {
+    pf.basket = [...DEFAULT_BASKET];
+    saveBasket();
+    renderPortfolio();
+    showToast('Basket reset');
+  });
+
+  let debounce = null;
+  const reRender = () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(renderPortfolio, 220);
+  };
+  el.rfRate?.addEventListener('input', reRender);
+  el.weightCap?.addEventListener('input', reRender);
+
+  el.rollingTabs?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-roll]');
+    if (!btn) return;
+    pf.rollingMetric = btn.getAttribute('data-roll');
+    el.rollingTabs.querySelectorAll('button').forEach(b => {
+      const active = b === btn;
+      b.className = active ? 'seg-btn is-active' : 'seg-btn';
+      b.setAttribute('aria-pressed', String(active));
+    });
+    if (pf.data) renderRollingChart(pf.data);
+  });
+
+  el.corrA?.addEventListener('change', () => { pf.pairA = el.corrA.value; if (pf.data) renderRollingChart(pf.data); });
+  el.corrB?.addEventListener('change', () => { pf.pairB = el.corrB.value; if (pf.data) renderRollingChart(pf.data); });
+
+  setView(currentView(), { push: false });
+}

@@ -18,10 +18,19 @@ export const POPULAR_TICKERS = [
 /**
  * Fetch daily bars from Twelve Data or fall back to realistic generated 2026 bars
  */
+// Records how the most recent price series was obtained, so the UI can be honest about
+// whether the user is looking at live vendor data or the generated model dataset.
+let lastDataSource = { kind: 'model', detail: 'No Twelve Data key configured' };
+
+export function getLastDataSource() {
+  return lastDataSource;
+}
+
 export async function fetchStockData(ticker, apiKey) {
   if (apiKey && apiKey.trim().length > 3) {
     try {
-      const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(ticker)}&interval=1day&outputsize=90&apikey=${apiKey.trim()}`;
+      // 400 daily bars so a real 200-period SMA can be computed, not just approximated.
+      const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(ticker)}&interval=1day&outputsize=400&apikey=${apiKey.trim()}`;
       const response = await fetch(url);
       const body = await response.text();
       let raw;
@@ -36,6 +45,7 @@ export async function fetchStockData(ticker, apiKey) {
       }
 
       if (raw && raw.values && raw.values.length > 0) {
+        lastDataSource = { kind: 'live', detail: 'Twelve Data' };
         return raw.values
           .map((b) => ({
             date: b.datetime,
@@ -47,9 +57,13 @@ export async function fetchStockData(ticker, apiKey) {
           }))
           .sort((a, b) => (a.date < b.date ? -1 : 1));
       }
+      lastDataSource = { kind: 'model', detail: 'Twelve Data returned no bars' };
     } catch (err) {
       console.warn(`Twelve Data live fetch failed for ${ticker}, using 2026 model dataset: ${err.message}`);
+      lastDataSource = { kind: 'model', detail: err.message };
     }
+  } else {
+    lastDataSource = { kind: 'model', detail: 'No Twelve Data key configured' };
   }
 
   // Generate realistic 2026 dataset for ticker
@@ -57,22 +71,29 @@ export async function fetchStockData(ticker, apiKey) {
 }
 
 /**
- * Generate 90 days of high-fidelity realistic trading bars for 2026
+ * Generate ~18 months of realistic daily trading bars for 2026.
+ *
+ * Long enough that a genuine 200-period SMA (and therefore the golden/death-cross
+ * signal) can be computed rather than falling back to the latest price. The walk is
+ * rescaled at the end so the final close lands exactly on the reference price, which
+ * keeps the hero quote, the analyst target and the upside percentage consistent.
  */
 function generateSyntheticData(ticker) {
   const symbol = ticker.toUpperCase();
+  const details = getSp500CompanyDetails(symbol);
   const found = POPULAR_TICKERS.find((t) => t.symbol === symbol);
 
-  let basePrice = found ? found.price : 120 + (symbol.charCodeAt(0) * 3) % 180;
-  let volatility = symbol === 'BTC' ? 0.035 : symbol === 'NVDA' ? 0.025 : 0.015;
-  let drift = 0.0012; // upward trend for 2026 AI expansion
+  const basePrice = found ? found.price : details.price;
+  const volatility = symbol === 'BTC' ? 0.035 : symbol === 'NVDA' ? 0.025 : 0.015;
+  const drift = 0.0006; // gentle upward bias for the 2026 AI expansion cycle
 
+  const CALENDAR_DAYS = 560; // ≈ 400 weekday bars
   const bars = [];
   const today = new Date('2026-08-03'); // Current platform time constraint in 2026
 
-  let currentClose = basePrice * 0.85; // Start 90 days prior at lower price
+  let currentClose = basePrice * 0.72; // start well below so the trend has room to run
 
-  for (let i = 89; i >= 0; i--) {
+  for (let i = CALENDAR_DAYS - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
 
@@ -82,7 +103,8 @@ function generateSyntheticData(ticker) {
 
     const dateStr = d.toISOString().split('T')[0];
 
-    const randomChange = (Math.random() - 0.47) * volatility;
+    // Zero-mean noise plus explicit drift, so the trend is controlled by `drift` alone
+    const randomChange = (Math.random() - 0.5) * volatility;
     currentClose = currentClose * (1 + randomChange + drift);
 
     const dayHigh = currentClose * (1 + Math.random() * (volatility * 0.8));
@@ -92,15 +114,26 @@ function generateSyntheticData(ticker) {
 
     bars.push({
       date: dateStr,
-      open: Number(dayOpen.toFixed(2)),
-      high: Number(dayHigh.toFixed(2)),
-      low: Number(dayLow.toFixed(2)),
-      close: Number(currentClose.toFixed(2)),
+      open: dayOpen,
+      high: dayHigh,
+      low: dayLow,
+      close: currentClose,
       volume
     });
   }
 
-  return bars;
+  // Normalise so the most recent close matches the reference price exactly.
+  const finalClose = bars[bars.length - 1].close;
+  const scale = finalClose > 0 ? basePrice / finalClose : 1;
+
+  return bars.map((b) => ({
+    date: b.date,
+    open: Number((b.open * scale).toFixed(2)),
+    high: Number((b.high * scale).toFixed(2)),
+    low: Number((b.low * scale).toFixed(2)),
+    close: Number((b.close * scale).toFixed(2)),
+    volume: b.volume
+  }));
 }
 
 /**
@@ -136,42 +169,61 @@ export function getCompanyFundamentals(ticker, latestPrice) {
 }
 
 /**
- * Converts markdown text (headers, bold, bullets, dividers) into clean, styled HTML
+ * Escape HTML-significant characters so untrusted strings (news headlines, model
+ * output, user-typed tickers) can never inject markup when interpolated into innerHTML.
+ */
+export function escapeHtml(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Convert markdown (headers, bold, bullets, dividers) into HTML.
+ *
+ * The input is escaped first, so model output cannot inject markup. Presentation is
+ * carried by semantic class names styled in style.css rather than inline utility
+ * classes, so the research note follows the theme automatically.
  */
 export function formatMarkdownToHtml(text) {
   if (!text) return '';
 
-  let html = text.trim();
+  let html = escapeHtml(text.trim());
 
   // 1. Clean out top-level duplicate headers like "# NVDA 2026 Research Synthesis"
   html = html.replace(/^#\s+[A-Z0-9\s&()]+\s+2026\s+Research\s+Synthesis.*$/gim, '');
 
-  // 2. Convert markdown headers to clean styled HTML elements
-  html = html.replace(/^# (.*$)/gim, '<h3 class="text-sm font-extrabold text-white border-b border-indigo-500/30 pb-1.5 mb-2 mt-3 flex items-center gap-2"><span class="w-1.5 h-3.5 bg-indigo-500 rounded-full"></span>$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h4 class="text-xs font-bold text-indigo-300 border-b border-slate-800/80 pb-1 mb-2 mt-3 flex items-center gap-1.5"><span class="text-cyan-400 font-mono">❖</span> $1</h4>');
-  html = html.replace(/^### (.*$)/gim, '<h5 class="text-xs font-bold text-slate-200 mb-1.5 mt-2.5">$1</h5>');
+  // 2. Markdown headers
+  html = html.replace(/^### (.*$)/gim, '<h5 class="ai-h3">$1</h5>');
+  html = html.replace(/^## (.*$)/gim, '<h4 class="ai-h2">$1</h4>');
+  html = html.replace(/^# (.*$)/gim, '<h3 class="ai-h1">$1</h3>');
 
-  // 3. Convert horizontal rule ---
-  html = html.replace(/---/g, '<hr class="border-t border-slate-800/80 my-3" />');
+  // 3. Horizontal rule
+  html = html.replace(/^\s*---\s*$/gm, '<hr class="ai-rule" />');
 
-  // 4. Convert bold text **text** to high-contrast badge/highlight
-  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-100 bg-slate-900/90 px-1.5 py-0.5 rounded border border-slate-800 text-indigo-300">$1</strong>');
+  // 4. Bold
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="ai-strong">$1</strong>');
 
-  // 5. Convert bullet lines (- or *)
-  html = html.replace(/^\s*[-*]\s+(.*$)/gim, '<li class="flex items-start gap-2 text-slate-300 my-1"><span class="text-cyan-400 mt-0.5 font-bold">•</span><span>$1</span></li>');
+  // 5. Bullets
+  html = html.replace(/^\s*[-*]\s+(.*$)/gim, '<li class="ai-li">$1</li>');
+  html = html.replace(/(<li class="ai-li">[\s\S]*?<\/li>)(?:\s*(?=<li class="ai-li">))?/g, '$1');
+  html = html.replace(/(?:<li class="ai-li">[\s\S]*?<\/li>\s*)+/g, (match) => `<ul class="ai-list">${match.trim()}</ul>`);
 
-  // Wrap consecutive list items in <ul>
-  html = html.replace(/(<li[\s\S]*?<\/li>)+/g, (match) => `<ul class="space-y-1.5 my-2 pl-1">${match}</ul>`);
-
-  // 6. Split double newlines into clean paragraph blocks
+  // 6. Paragraphs
   const parts = html.split(/\n\s*\n/);
   if (parts.length > 1) {
-    html = parts.map(p => {
-      p = p.trim();
-      if (!p) return '';
-      if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<hr')) return p;
-      return `<p class="leading-relaxed text-slate-300 text-xs mb-2.5">${p}</p>`;
-    }).join('');
+    html = parts
+      .map((p) => {
+        p = p.trim();
+        if (!p) return '';
+        if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<hr')) return p;
+        return `<p class="ai-p">${p}</p>`;
+      })
+      .join('');
   } else {
     html = html.replace(/\n/g, '<br />');
   }
@@ -228,31 +280,39 @@ export async function getAiResearchSynthesis(ticker, priceData, metrics, openRou
 }
 
 function parseAiResponse(ticker, text, metrics, preset = 'General') {
+  // Pull the key drivers out of the model's own bullets rather than returning
+  // NVIDIA-flavoured boilerplate for every ticker.
+  const bullets = (text.match(/^\s*[-*]\s+(.+)$/gm) || [])
+    .map(line => line.replace(/^\s*[-*]\s+/, '').replace(/\*\*/g, '').trim())
+    .filter(line => line.length > 20)
+    .slice(0, 3);
+
+  const keyDrivers = bullets.length
+    ? bullets
+    : [`See the ${preset.toLowerCase()} synthesis above for ${ticker.toUpperCase()}'s key drivers.`];
+
   return {
     rawText: text,
-    sentimentScore: 86,
-    sentimentLabel: `${preset} Conviction`,
+    sentimentScore: metrics && metrics.dayPctChange >= 0 ? 82 : 68,
+    sentimentLabel: `${preset} conviction`,
     summaryParagraph: text,
-    keyDrivers: [
-      'Next-gen AI inference infrastructure rollout driving double-digit margin expansion',
-      'Accelerating enterprise cloud ARR with 120%+ net retention rate',
-      'Strong free-cash-flow yield supporting buybacks & strategic M&A'
-    ],
-    risks: [
-      'Potential supply chain friction in high-bandwidth memory chips',
-      'Macro rate volatility impacting tech equity multiples'
-    ],
-    rating: 'Outperform (2026 Conviction List)'
+    keyDrivers,
+    rating: 'Model synthesis'
   };
 }
 
 function generateDefaultAiSynthesis(ticker, priceData, metrics, preset = 'General') {
   const symbol = ticker.toUpperCase();
+  // Fundamentals live on the S&P 500 constituent record, not on the price-derived
+  // metrics object — reading them off `metrics` renders "undefined" in the note.
+  const details = getSp500CompanyDetails(symbol);
   const isUp = metrics.dayPctChange >= 0;
   const price = metrics.latestPrice.toFixed(2);
-  const pe = metrics.pe;
-  const fwdPe = metrics.fwdPe;
-  const fcf = metrics.fcf;
+  const pe = details.pe;
+  const fwdPe = details.fwdPe;
+  const fcf = details.fcf; // already formatted with a leading "$"
+  const revenueGrowth = details.revenueGrowth;
+  const epsGrowth = details.epsGrowth;
   const high = metrics.high52.toFixed(2);
   const low = metrics.low52.toFixed(2);
 
@@ -267,11 +327,11 @@ function generateDefaultAiSynthesis(ticker, priceData, metrics, preset = 'Genera
     summaryParagraph = `## Valuation & Discounted Cash Flow Analysis
 
 **${symbol} Valuation Thesis (2026):**
-Trading at **$${price}**, ${symbol} presents an attractive risk/reward profile with a **Trailing P/E of ${pe}x** and a compressed **Forward P/E of ${fwdPe}x**. Operating cash conversion remains exceptionally strong with **$${fcf} in annual Free Cash Flow**, enabling ongoing capital return via share repurchases and balance sheet deleveraging.
+Trading at **$${price}**, ${symbol} presents an attractive risk/reward profile with a **Trailing P/E of ${pe}x** and a compressed **Forward P/E of ${fwdPe}x**. Operating cash conversion remains exceptionally strong with **${fcf} in annual Free Cash Flow**, enabling ongoing capital return via share repurchases and balance sheet deleveraging.
 
 ### Key Multiples & Fair Value Matrix
 - **Forward P/E:** **${fwdPe}x** (vs. S&P 500 peer average of 28.5x)
-- **Free Cash Flow:** **$${fcf}** with a 4.2% FCF Yield
+- **Free Cash Flow:** **${fcf}** with a 4.2% FCF Yield
 - **DCF Fair Value Estimate:** **$${(metrics.latestPrice * 1.18).toFixed(2)}** representing a **+18.0% upside margin of safety**.`;
   } else if (preset === 'Earnings') {
     sentimentScore = 86;
@@ -279,11 +339,11 @@ Trading at **$${price}**, ${symbol} presents an attractive risk/reward profile w
     summaryParagraph = `## 2026 Earnings & Revenue Growth Catalyst
 
 **${symbol} H2 2026 Earnings Outlook:**
-${symbol} is positioned for a strong quarterly earnings print. Consensual estimates model **Revenue Growth at ${metrics.revenueGrowth} YoY** and **EPS Growth at ${metrics.epsGrowth}**, anchored by multi-quarter enterprise contract wins and sustained backlog execution.
+${symbol} is positioned for a strong quarterly earnings print. Consensus estimates model **Revenue Growth at ${revenueGrowth} YoY** and **EPS Growth at ${epsGrowth}**, anchored by multi-quarter enterprise contract wins and sustained backlog execution.
 
 ### Quarterly Catalyst Drivers
-- **Revenue Trajectory:** **${metrics.revenueGrowth}** year-over-year surge
-- **EPS Trajectory:** **${metrics.epsGrowth}** bottom-line expansion
+- **Revenue Trajectory:** **${revenueGrowth}** year-over-year surge
+- **EPS Trajectory:** **${epsGrowth}** bottom-line expansion
 - **Beat Probability:** **High Confidence** driven by +4.8% average historical surprise margin.`;
   } else if (preset === 'Technical') {
     sentimentScore = isUp ? 85 : 72;
@@ -303,7 +363,7 @@ ${symbol} is holding a strong structural bull trend at **$${price}**. The 52-wee
     summaryParagraph = `## General 2026 Market Outlook & Strategy
 
 **${symbol} Comprehensive 2026 Overview:**
-${symbol} exhibits high-conviction market positioning in Q3 2026, trading near **$${price}** (${isUp ? '+' : ''}${metrics.dayPctChange.toFixed(2)}% today). Supported by **${metrics.revenueGrowth} Revenue Growth** and **$${fcf} in Free Cash Flow**, the company maintains a dominant competitive moat across its core industry verticals.
+${symbol} exhibits high-conviction market positioning in Q3 2026, trading near **$${price}** (${isUp ? '+' : ''}${metrics.dayPctChange.toFixed(2)}% today). Supported by **${revenueGrowth} Revenue Growth** and **${fcf} in Free Cash Flow**, the company maintains a dominant competitive moat across its core industry verticals.
 
 ### 2026 Macro Trajectory
 - **52-Week High Re-Test Target:** **$${high}**

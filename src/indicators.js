@@ -59,7 +59,9 @@ export function calculateRSI(data, period = 14) {
     rsiValues.push(Number(rsi.toFixed(1)));
   }
 
-  const latestRsi = rsiValues[rsiValues.length - 1] || 50;
+  // `|| 50` would turn a legitimate RSI of 0 into "Neutral"
+  const lastRsi = rsiValues[rsiValues.length - 1];
+  const latestRsi = Number.isFinite(lastRsi) ? lastRsi : 50;
   let status = 'Neutral';
   if (latestRsi >= 70) status = 'Overbought';
   else if (latestRsi <= 30) status = 'Oversold';
@@ -113,8 +115,12 @@ export function calculateMACD(data) {
 
   // Calculate signal line (9-period EMA of MACD line)
   const validMacd = macdLine.filter((v) => v !== null);
+  if (validMacd.length === 0) return { macd: 0, signal: 0, histogram: 0, status: 'Neutral' };
+
   const k = 2 / (9 + 1);
-  let prevSignal = validMacd.slice(0, 9).reduce((a, b) => a + b, 0) / 9;
+  // Seed the EMA with the mean of however many values exist, not always /9
+  const seedCount = Math.min(9, validMacd.length);
+  let prevSignal = validMacd.slice(0, seedCount).reduce((a, b) => a + b, 0) / seedCount;
 
   let latestMacd = validMacd[validMacd.length - 1] || 0;
   let latestSignal = prevSignal;
@@ -165,16 +171,17 @@ export function calculateBollingerBands(data, period = 20, stdDevMultiplier = 2)
 export function calculateMetrics(data, ticker) {
   if (!data || data.length === 0) return null;
 
-  const closes = data.map((d) => d.close);
-  const highs = data.map((d) => d.high);
-  const lows = data.map((d) => d.low);
   const volumes = data.map((d) => d.volume);
 
   const latest = data[data.length - 1];
   const first = data[0];
 
-  const high52 = Math.max(...highs);
-  const low52 = Math.min(...lows);
+  // 52-week window is the trailing 252 trading days, not the whole series
+  const TRADING_DAYS_YEAR = 252;
+  const window52 = data.slice(-TRADING_DAYS_YEAR);
+  const high52 = Math.max(...window52.map((d) => d.high));
+  const low52 = Math.min(...window52.map((d) => d.low));
+
   const avgVolume = Math.round(volumes.reduce((a, b) => a + b, 0) / volumes.length);
 
   const changePeriod = latest.close - first.close;
@@ -186,8 +193,17 @@ export function calculateMetrics(data, ticker) {
   const dayChange = latest.close - (data[data.length - 2]?.close || latest.open);
   const dayPctChange = (dayChange / (data[data.length - 2]?.close || latest.open)) * 100;
 
-  // 2026 YTD estimate
-  const ytdChangePct = Number((pctChangePeriod * 1.15).toFixed(2));
+  // Real year-to-date: measured from the last close before 1 January of the latest year.
+  // Falls back to the full-period change when the series does not reach back that far.
+  const latestYear = latest.date.slice(0, 4);
+  const firstOfYearIdx = data.findIndex((d) => d.date >= `${latestYear}-01-01`);
+  const ytdBase =
+    firstOfYearIdx > 0 ? data[firstOfYearIdx - 1].close
+    : firstOfYearIdx === 0 ? data[0].close
+    : null;
+  const ytdChangePct = Number(
+    (ytdBase ? ((latest.close - ytdBase) / ytdBase) * 100 : pctChangePeriod).toFixed(2)
+  );
 
   return {
     latestPrice: latest.close,
