@@ -280,21 +280,24 @@ export async function getAiResearchSynthesis(ticker, priceData, metrics, openRou
 }
 
 function parseAiResponse(ticker, text, metrics, preset = 'General') {
+  // Pull the key drivers out of the model's own bullets rather than returning
+  // NVIDIA-flavoured boilerplate for every ticker.
+  const bullets = (text.match(/^\s*[-*]\s+(.+)$/gm) || [])
+    .map(line => line.replace(/^\s*[-*]\s+/, '').replace(/\*\*/g, '').trim())
+    .filter(line => line.length > 20)
+    .slice(0, 3);
+
+  const keyDrivers = bullets.length
+    ? bullets
+    : [`See the ${preset.toLowerCase()} synthesis above for ${ticker.toUpperCase()}'s key drivers.`];
+
   return {
     rawText: text,
-    sentimentScore: 86,
-    sentimentLabel: `${preset} Conviction`,
+    sentimentScore: metrics && metrics.dayPctChange >= 0 ? 82 : 68,
+    sentimentLabel: `${preset} conviction`,
     summaryParagraph: text,
-    keyDrivers: [
-      'Next-gen AI inference infrastructure rollout driving double-digit margin expansion',
-      'Accelerating enterprise cloud ARR with 120%+ net retention rate',
-      'Strong free-cash-flow yield supporting buybacks & strategic M&A'
-    ],
-    risks: [
-      'Potential supply chain friction in high-bandwidth memory chips',
-      'Macro rate volatility impacting tech equity multiples'
-    ],
-    rating: 'Outperform (2026 Conviction List)'
+    keyDrivers,
+    rating: 'Model synthesis'
   };
 }
 

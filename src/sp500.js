@@ -119,10 +119,6 @@ export function searchSp500Companies(query) {
 
 export function getSp500CompanyDetails(symbol) {
   const sym = symbol.toUpperCase().trim().replace(/\s+/g, '');
-  if (sym === 'SPACEX' || sym === 'SPCX' || sym === 'SPACEX' || sym.includes('SPACE')) {
-    const spaceXMatch = SP500_COMPANIES.find(c => c.symbol === 'SPACEX');
-    if (spaceXMatch) return spaceXMatch;
-  }
 
   const match = SP500_COMPANIES.find((c) => c.symbol === sym || c.symbol === symbol.toUpperCase().trim());
   if (match) return match;

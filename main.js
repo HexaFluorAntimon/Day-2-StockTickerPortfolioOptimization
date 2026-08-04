@@ -245,7 +245,7 @@ function renderTickerTape() {
       const interactive = Boolean(item.ticker);
       const tag = interactive ? 'button' : 'div';
       const attrs = interactive
-        ? ` type="button" data-tape-symbol="${escapeHtml(item.ticker)}" class="tape-item tape-item--link"`
+        ? ` type="button" tabindex="-1" data-tape-symbol="${escapeHtml(item.ticker)}" class="tape-item tape-item--link"`
         : ' class="tape-item"';
       return `
     <${tag}${attrs}>
@@ -507,7 +507,7 @@ function renderChart() {
 
   // Area gradient — both stops in the same hue family, fading to transparent
   const isUpTrend = closes[closes.length - 1] >= closes[0];
-  const gradient = ctx.createLinearGradient(0, 0, 0, 340);
+  const gradient = ctx.createLinearGradient(0, 0, 0, el.chartCanvas.clientHeight || 360);
   if (isUpTrend) {
     gradient.addColorStop(0, 'rgba(28, 110, 70, 0.22)');
     gradient.addColorStop(1, 'rgba(28, 110, 70, 0)');
@@ -626,6 +626,16 @@ function renderChart() {
 
   if (priceChartInstance) {
     priceChartInstance.destroy();
+  }
+
+  // Snap the readout back to the most recent bar when the pointer leaves, so it
+  // never sits frozen on whatever was last hovered.
+  if (!el.chartCanvas.dataset.leaveBound) {
+    el.chartCanvas.addEventListener('mouseleave', () => {
+      const bars = filterBarsByTimeframe(state.priceData, state.timeframe);
+      updateOhlcReadout(bars[bars.length - 1]);
+    });
+    el.chartCanvas.dataset.leaveBound = '1';
   }
 
   priceChartInstance = new Chart(ctx, {
@@ -1061,9 +1071,16 @@ function setupEventListeners() {
 
   // Global Keyboard Shortcut Cmd+K / Ctrl+K
   document.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-      e.preventDefault();
+    if (!((e.metaKey || e.ctrlKey) && e.key === 'k')) return;
+    e.preventDefault();
+    // The header search is hidden on narrow viewports; focusing a display:none
+    // input does nothing, so fall back to the directory, which has its own search.
+    if (el.tickerSearch.offsetParent !== null) {
       el.tickerSearch.focus();
+    } else if (el.sp500Modal) {
+      openModal(el.sp500Modal);
+      renderSp500DirectoryTable();
+      el.sp500ModalSearch?.focus();
     }
   });
 
@@ -1350,7 +1367,7 @@ function renderSp500DirectoryTable() {
       <td class="dir__cell dir__num dir__num--strong">$${c.price.toFixed(2)}</td>
       <td class="dir__cell dir__num">${escapeHtml(c.cap)}</td>
       <td class="dir__cell dir__num">${escapeHtml(String(c.pe))}</td>
-      <td class="dir__cell dir__num dir__num--target">$${c.targetPrice ? c.targetPrice.toFixed(2) : '—'}</td>
+      <td class="dir__cell dir__num ${c.targetPrice && c.targetPrice >= c.price ? 'is-up' : c.targetPrice ? 'is-down' : ''}">${c.targetPrice ? '$' + c.targetPrice.toFixed(2) : '—'}</td>
       <td class="dir__cell dir__rating">
         <span class="tag ${c.rating === 'Strong Buy' ? 'is-up' : c.rating === 'Hold' ? 'is-flat' : 'is-accent'}">${escapeHtml(c.rating)}</span>
       </td>

@@ -19,7 +19,7 @@
   /* --- ink --- */
   --ink:          #16281f;  /* primary text */
   --ink-soft:     #46574c;  /* secondary text */
-  --ink-mute:     #6b7a70;  /* labels, captions — AA on --paper */
+  --ink-mute:     #516652;  /* labels, captions — 5.00:1 worst-case, AA everywhere */
   --ink-invert:   #f4f6ef;  /* text on --surface-deep */
 
   /* --- lines --- */
@@ -27,7 +27,8 @@
   --line-strong:  #b9c4b2;  /* emphasised rules */
 
   /* --- greens: the dominant family --- */
-  --moss:         #2f7d4f;
+  --moss:         #24693b;  /* text-safe: 5.33:1 worst-case */
+  --moss-graphic: #2f7d4f;  /* fills, gauge bars, focus ring — never text */
   --moss-deep:    #1d5c39;
   --moss-soft:    #dceadf;
   --pine:         #14352a;
@@ -369,7 +370,7 @@ body.modal-open {
   animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 .status-dot.is-ok,      .status-ping.is-ok      { background: var(--up); }
-.status-dot.is-live,    .status-ping.is-live    { background: var(--moss); }
+.status-dot.is-live,    .status-ping.is-live    { background: var(--moss-graphic); }
 .status-dot.is-partial, .status-ping.is-partial { background: var(--ochre); }
 
 @keyframes ping {
@@ -383,7 +384,7 @@ body.modal-open {
   transition: width 0.5s ease, background-color 0.3s ease;
 }
 .meter__fill.is-cold { background: var(--sky); }
-.meter__fill.is-mid  { background: var(--moss); }
+.meter__fill.is-mid  { background: var(--moss-graphic); }
 .meter__fill.is-hot  { background: var(--clay); }
 .meter__fill.is-band { background: var(--pine); }
 
