@@ -564,6 +564,7 @@
             <select id="basket-add" class="bg-white border border-line hover:border-moss rounded-full px-3 py-1.5 text-[12.5px] font-medium text-ink focus:outline-none focus:ring-2 focus:ring-moss/20 transition cursor-pointer max-w-[280px]">
               <option value="">Add a company…</option>
             </select>
+            <button id="btn-live-data" type="button" class="chip !border-moss !text-moss-deep">Load live prices</button>
             <button id="btn-basket-reset" type="button" class="chip">Reset</button>
           </div>
         </div>
@@ -715,7 +716,9 @@
           <span class="eyebrow">Here in the browser</span>
           <ul class="text-[12px] leading-relaxed text-ink-soft space-y-1.5 list-none p-0 m-0">
             <li class="driver">Inverse volatility needs no solver — the handout's stand-in. It ignores correlation.</li>
-            <li class="driver">Minimum variance and maximum Sharpe are solved by projected gradient descent onto the simplex, which is fast enough for a handful of assets.</li>
+            <li class="driver">Minimum variance and maximum Sharpe run through <span class="font-mono">quadprog</span> — a JavaScript port of the very same Goldfarb–Idnani dual method that <span class="font-mono">solve.QP()</span> uses in R. Same algorithm, same answer, no server.</li>
+            <li class="driver">Maximum Sharpe reaches the solver through the standard reformulation: minimise <span class="font-mono">y'Σy</span> subject to <span class="font-mono">(μ−rf)'y = 1</span>, then rescale <span class="font-mono">w = y/Σy</span>. That is the "quadprog reformulation" the handout offers as optional depth.</li>
+            <li class="driver">Projected gradient descent stays as a fallback for the cases a QP genuinely cannot answer — a position cap too tight to be feasible, or no asset out-earning the risk-free rate.</li>
             <li class="driver">A weighting is never shipped from an optimiser straight to a trading system. That missing human step is what ended Knight Capital in 45 minutes.</li>
           </ul>
         </div>

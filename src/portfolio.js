@@ -11,6 +11,7 @@
 // comparison table show what inverse volatility actually gives up.
 
 import { getSp500CompanyDetails } from './sp500.js';
+import { solveQP } from 'quadprog';
 
 export const TRADING_DAYS = 252;
 export const MARKET_SYMBOL = 'SPY';
@@ -132,7 +133,86 @@ export function generateBasketSeries(symbols, days = 500) {
       prices: marketPrices.map(v => Number((v * 560).toFixed(4))),
       returns: stressFactor
     },
-    stressStart
+    stressStart,
+    source: 'model'
+  };
+}
+
+/* ------------------------------------------------------------ live data --- */
+
+/**
+ * Fetch real daily closes for a basket (plus SPY as the market proxy) from
+ * Twelve Data, and align every series onto the dates they all share.
+ *
+ * Alignment matters: two tickers can differ in history length or miss
+ * different sessions (halts, listing dates, holidays on a dual listing). Zipping
+ * unaligned series would pair Monday's return for one name with Tuesday's for
+ * another and quietly corrupt every covariance in the matrix.
+ *
+ * Throws on any failure so the caller can fall back to the model series and say so.
+ */
+export async function fetchBasketSeries(symbols, apiKey, outputsize = 500) {
+  if (!apiKey || apiKey.trim().length < 4) throw new Error('No Twelve Data key configured');
+  const wanted = [...symbols, MARKET_SYMBOL];
+
+  const fetchOne = async (sym) => {
+    const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(sym)}` +
+      `&interval=1day&outputsize=${outputsize}&apikey=${apiKey.trim()}`;
+    const res = await fetch(url);
+    const body = await res.json().catch(() => null);
+    if (!body) throw new Error(`${sym}: response was not JSON`);
+    if (body.status === 'error') throw new Error(`${sym}: ${body.message || 'Twelve Data error'}`);
+    if (!Array.isArray(body.values) || body.values.length === 0) throw new Error(`${sym}: no bars returned`);
+    const byDate = new Map();
+    for (const b of body.values) {
+      const close = Number(b.close);
+      if (Number.isFinite(close)) byDate.set(b.datetime, close);
+    }
+    return byDate;
+  };
+
+  // Sequential: the free plan allows 8 requests a minute, and firing a basket
+  // in parallel is the quickest way to trip it.
+  const raw = {};
+  for (const sym of wanted) {
+    raw[sym] = await fetchOne(sym);
+  }
+
+  // Intersect the dates present in every series, oldest first
+  let common = null;
+  for (const sym of wanted) {
+    const dates = new Set(raw[sym].keys());
+    common = common === null ? dates : new Set([...common].filter(d => dates.has(d)));
+  }
+  const dates = [...common].sort();
+  if (dates.length < 60) {
+    throw new Error(`only ${dates.length} overlapping sessions across the basket`);
+  }
+
+  const series = {};
+  for (const sym of symbols) {
+    const prices = dates.map(d => raw[sym].get(d));
+    series[sym] = {
+      symbol: sym,
+      name: getSp500CompanyDetails(sym).name,
+      beta: Number(getSp500CompanyDetails(sym).beta) || 1,
+      prices,
+      returns: toSimpleReturns(prices)
+    };
+  }
+  const marketPrices = dates.map(d => raw[MARKET_SYMBOL].get(d));
+
+  return {
+    dates,
+    series,
+    market: {
+      symbol: MARKET_SYMBOL,
+      name: 'SPDR S&P 500 ETF',
+      prices: marketPrices,
+      returns: toSimpleReturns(marketPrices)
+    },
+    stressStart: null,
+    source: 'live'
   };
 }
 
@@ -237,6 +317,149 @@ function projectToCappedSimplex(v, cap) {
   }
   const theta = (lo + hi) / 2;
   return v.map(x => Math.min(cap, Math.max(0, x - theta)));
+}
+
+/* ------------------------------------------------ quadratic programming --- */
+/*
+ * The `quadprog` package is a direct JavaScript port of the R package of the
+ * same name — the same Goldfarb & Idnani (1983) dual active-set method that
+ * quadprog::solve.QP() runs in the course scripts. It solves
+ *
+ *     min  −d'b + ½ b'Db     subject to     A'b ≥ b0
+ *
+ * with the first `meq` constraints treated as equalities. Being an active-set
+ * method it terminates in finitely many steps at the exact KKT point, rather
+ * than approaching it the way gradient descent does.
+ *
+ * Its arrays are 1-indexed, a leftover from the Fortran original: index 0 of
+ * every vector and of every matrix row is unused. The helpers below keep that
+ * quirk contained.
+ */
+
+const toQpVec = (arr) => [0, ...arr];
+/** Column-major: qp[i][j] is row i, column j, both 1-indexed. */
+const toQpMat = (rows) => [0, ...rows.map(r => [0, ...r])];
+
+/**
+ * Add a tiny ridge to the diagonal. quadprog requires a strictly positive
+ * definite D; a sample covariance matrix can be singular or near-singular when
+ * two holdings are nearly identical or the history is short.
+ */
+function ridged(cov, epsilon = 1e-10) {
+  const n = cov.length;
+  const trace = cov.reduce((acc, row, i) => acc + row[i], 0);
+  const lambda = Math.max(epsilon, (trace / n) * 1e-8);
+  return cov.map((row, i) => row.map((x, j) => (i === j ? x + lambda : x)));
+}
+
+/**
+ * Solve  min w'Σw  s.t.  Σw = 1, 0 ≤ w ≤ cap.
+ * Returns null if the solver cannot reach a solution, so callers can fall back.
+ */
+export function minVarianceQP(cov, cap = 1) {
+  const n = cov.length;
+  if (n === 1) return [1];
+  if (cap * n < 1 - 1e-12) return null; // infeasible: cap too tight to reach Σw = 1
+
+  const useCap = cap < 1 - 1e-12;
+  // Columns: [Σw = 1] [w_i ≥ 0]×n [−w_i ≥ −cap]×n
+  const cols = [];
+  cols.push(new Array(n).fill(1));
+  for (let i = 0; i < n; i++) cols.push(Array.from({ length: n }, (_, k) => (k === i ? 1 : 0)));
+  if (useCap) {
+    for (let i = 0; i < n; i++) cols.push(Array.from({ length: n }, (_, k) => (k === i ? -1 : 0)));
+  }
+  const bvec = [1, ...new Array(n).fill(0), ...(useCap ? new Array(n).fill(-cap) : [])];
+
+  // Amat[i][j] = coefficient of variable i in constraint j
+  const Amat = Array.from({ length: n }, (_, i) => cols.map(c => c[i]));
+
+  try {
+    const res = solveQP(
+      toQpMat(ridged(cov).map(r => r.map(x => 2 * x))), // D = 2Σ  ⇒ ½b'Db = b'Σb
+      toQpVec(new Array(n).fill(0)),                    // d = 0
+      toQpMat(Amat),
+      toQpVec(bvec),
+      1                                                 // first constraint is the equality
+    );
+    if (!res || !res.solution || res.message) return null;
+    const w = res.solution.slice(1).map(x => (Math.abs(x) < 1e-11 ? 0 : x));
+    return normaliseWeights(w, cap);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Long-only maximum Sharpe as a single QP, via the standard transformation
+ * (Cornuejols & Tütüncü). With excess returns μₑ = μ − rf, solving
+ *
+ *     min y'Σy   s.t.   μₑ'y = 1,  y ≥ 0
+ *
+ * and rescaling w = y / Σy gives the exact tangency portfolio. This is the
+ * "quadprog reformulation offered as optional depth" the handout mentions —
+ * it sidesteps the fact that a ratio of two functions of w cannot be handed to
+ * a quadratic solver directly.
+ *
+ * A position cap becomes linear in y: wᵢ ≤ cap ⇔ yᵢ ≤ cap·Σy.
+ * Requires at least one asset with positive excess return, else there is no
+ * feasible point and the tangency portfolio is undefined.
+ */
+export function maxSharpeQP(cov, meanDaily, riskFreeAnnual, cap = 1) {
+  const n = cov.length;
+  if (n === 1) return [1];
+  if (cap * n < 1 - 1e-12) return null;
+
+  const rfDaily = riskFreeAnnual / TRADING_DAYS;
+  const excess = meanDaily.map(m => m - rfDaily);
+  if (Math.max(...excess) <= 1e-12) return null; // no asset beats the risk-free rate
+
+  const useCap = cap < 1 - 1e-12;
+  const cols = [];
+  cols.push(excess);                                                  // μₑ'y = 1
+  for (let i = 0; i < n; i++) cols.push(Array.from({ length: n }, (_, k) => (k === i ? 1 : 0)));
+  if (useCap) {
+    // cap·Σy − yᵢ ≥ 0
+    for (let i = 0; i < n; i++) cols.push(Array.from({ length: n }, (_, k) => cap - (k === i ? 1 : 0)));
+  }
+  const bvec = [1, ...new Array(n).fill(0), ...(useCap ? new Array(n).fill(0) : [])];
+  const Amat = Array.from({ length: n }, (_, i) => cols.map(c => c[i]));
+
+  try {
+    const res = solveQP(
+      toQpMat(ridged(cov).map(r => r.map(x => 2 * x))),
+      toQpVec(new Array(n).fill(0)),
+      toQpMat(Amat),
+      toQpVec(bvec),
+      1
+    );
+    if (!res || !res.solution || res.message) return null;
+    const y = res.solution.slice(1);
+    const total = y.reduce((a, b) => a + b, 0);
+    if (!(total > 1e-12) || !y.every(Number.isFinite)) return null;
+    const w = y.map(v => Math.max(0, v) / total);
+    return normaliseWeights(w, cap);
+  } catch {
+    return null;
+  }
+}
+
+/** Clean up solver output: clip tiny negatives, respect the cap, sum to exactly 1. */
+function normaliseWeights(w, cap) {
+  let out = w.map(x => Math.min(cap, Math.max(0, x)));
+  const total = out.reduce((a, b) => a + b, 0);
+  if (!(total > 0)) return null;
+  out = out.map(x => x / total);
+  // Renormalising can nudge a holding just past the cap; settle it in a few passes
+  for (let pass = 0; pass < 20; pass++) {
+    const over = out.reduce((acc, x) => acc + Math.max(0, x - cap), 0);
+    if (over < 1e-12) break;
+    const room = out.reduce((acc, x) => acc + (x < cap - 1e-12 ? cap - x : 0), 0);
+    if (room < 1e-12) break;
+    out = out.map(x => (x >= cap - 1e-12 ? cap : x + over * ((cap - x) / room)));
+  }
+  const t2 = out.reduce((a, b) => a + b, 0);
+  return out.map(x => x / t2);
 }
 
 /** Naive 1/N benchmark. */
