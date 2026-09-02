@@ -1,4 +1,9 @@
-// S&P 500 Complete Constituents & Financial Data Service
+// S&P 500 large-cap directory: 79 index constituents, the app's search universe.
+//
+// The per-company fundamentals below (price, changePct, cap, pe, fwdPe, epsGrowth,
+// revenueGrowth, fcf, beta, rating, targetPrice) are a STATIC reference snapshot and
+// are never refetched. Live values come from Twelve Data (prices) and NewsAPI
+// (headlines); treat these fields as illustrative defaults for the directory view.
 
 export const SP500_COMPANIES = [
   // Information Technology & AI
@@ -98,7 +103,7 @@ export const SP500_COMPANIES = [
   { symbol: 'PLD', name: 'Prologis, Inc.', sector: 'Real Estate', price: 124.50, changePct: 0.42, cap: '$115B', pe: 38.2, fwdPe: 28.4, epsGrowth: '+9.2%', revenueGrowth: '+8.5%', fcf: '$4.8B', beta: 0.98, rating: 'Buy', targetPrice: 140.00 }
 ];
 
-// Helper to lookup or dynamically expand search for all 500 S&P symbols
+// Search the directory by symbol, company name or sector.
 export function searchSp500Companies(query) {
   if (!query) return SP500_COMPANIES;
   const rawQ = query.trim().toUpperCase();

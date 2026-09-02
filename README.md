@@ -1,15 +1,15 @@
 # Aura — Day 2: Portfolio Optimisation
 
-Two-view single-page application. **Markets** analyses one equity at a time across the
-full S&P 500 with live news; **Portfolio** builds a basket and solves for its optimal
-weights with real quadratic programming, in the browser.
+Two-view single-page application. **Markets** analyses one equity at a time across a
+79-name S&P 500 large-cap directory with live news; **Portfolio** builds a basket and
+solves for its optimal weights with real quadratic programming, in the browser.
 
 Built for **Generative AI in Finance**, Executive Academy WU (Aug 2026) — Day 2 repository.
 
 **Live:** _enable GitHub Pages (Settings → Pages → Source: GitHub Actions), then the URL appears here_
 
 > **Day 1 is the starting point** — one ticker, technical indicators, an LLM research note
-> → [aura-day1-stocks](https://github.com/HexaFluorAntimon/Single-Page-Application-Nr1)
+> → [Day-1-StockTicker](https://github.com/HexaFluorAntimon/Day-1-StockTicker)
 
 ---
 
@@ -17,7 +17,7 @@ Built for **Generative AI in Finance**, Executive Academy WU (Aug 2026) — Day 
 
 | | |
 |---|---|
-| **S&P 500 universe** | Searchable directory of the full index, replacing Day 1's nine-name reference set. |
+| **S&P 500 large-cap directory** | Searchable directory of 79 index constituents, replacing Day 1's nine-name reference set. Company fundamentals (P/E, growth, beta, analyst rating, target price) are a static reference snapshot, not live data — only prices and news are fetched. |
 | **Live news** | NewsAPI headlines per ticker with a bullish / bearish / neutral read, replacing the curated feed. |
 | **Portfolio view** | A second view, reachable from the header and deep-linkable by URL hash. |
 | **Optimisation** | Minimum variance and maximum Sharpe solved with quadratic programming, plus inverse-volatility and equal-weight baselines. |
