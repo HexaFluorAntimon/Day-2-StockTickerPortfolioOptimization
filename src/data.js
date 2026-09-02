@@ -83,7 +83,10 @@ function generateSyntheticData(ticker) {
   const details = getSp500CompanyDetails(symbol);
   const found = POPULAR_TICKERS.find((t) => t.symbol === symbol);
 
-  const basePrice = found ? found.price : details.price;
+  // Off-directory symbols have no reference price. The series this generates is
+  // labelled "Model dataset" in the UI, so a neutral starting level is honest here —
+  // it anchors the walk, it is not a claim about the company.
+  const basePrice = found ? found.price : (details?.price ?? 100);
   const volatility = symbol === 'BTC' ? 0.035 : symbol === 'NVDA' ? 0.025 : 0.015;
   const drift = 0.0006; // gentle upward bias for the 2026 AI expansion cycle
 
@@ -137,10 +140,38 @@ function generateSyntheticData(ticker) {
 }
 
 /**
- * Get Fundamentals & S&P 500 Metrics for ticker
+ * Fundamentals for a ticker, read off the bundled S&P 500 reference directory.
+ *
+ * A symbol outside that directory has no fundamentals here, and none are invented for
+ * it: every field comes back 'N/A' and `inReferenceSet` is false, so the UI can say so
+ * plainly. Price-derived figures (the chart, the metrics, the technical signals) are
+ * unaffected — those are computed from the series either way.
  */
 export function getCompanyFundamentals(ticker, latestPrice) {
   const details = getSp500CompanyDetails(ticker);
+  const symbol = ticker.toUpperCase().trim();
+
+  if (!details) {
+    return {
+      symbol,
+      name: symbol,
+      sector: 'Not in reference directory',
+      marketCap: 'N/A',
+      peRatio: 'N/A',
+      forwardPe: 'N/A',
+      epsGrowth2026: 'N/A',
+      revenueGrowth: 'N/A',
+      freeCashFlow: 'N/A',
+      beta: 'N/A',
+      targetPrice: 'N/A',
+      upsidePct: '',
+      analystRating: 'N/A',
+      buyCount: 0,
+      holdCount: 0,
+      sellCount: 0,
+      inReferenceSet: false
+    };
+  }
 
   const price = latestPrice || details.price;
   const targetVal = details.targetPrice || (price * 1.20);
@@ -155,16 +186,17 @@ export function getCompanyFundamentals(ticker, latestPrice) {
     marketCap: details.cap,
     peRatio: details.pe,
     forwardPe: details.fwdPe,
-    epsGrowth2026: details.epsGrowth || '+18.4%',
-    revenueGrowth: `${details.revenueGrowth || '+12.5%'} YoY`,
-    freeCashFlow: details.fcf || '$12.4B',
-    beta: details.beta || 1.05,
+    epsGrowth2026: details.epsGrowth ?? 'N/A',
+    revenueGrowth: details.revenueGrowth ? `${details.revenueGrowth} YoY` : 'N/A',
+    freeCashFlow: details.fcf ?? 'N/A',
+    beta: details.beta ?? 'N/A',
     targetPrice: target,
     upsidePct: upside,
-    analystRating: details.rating || 'Strong Buy',
+    analystRating: details.rating ?? 'N/A',
     buyCount: details.rating === 'Strong Buy' ? 34 : 22,
     holdCount: 6,
-    sellCount: 1
+    sellCount: 1,
+    inReferenceSet: true
   };
 }
 
@@ -308,13 +340,18 @@ function generateDefaultAiSynthesis(ticker, priceData, metrics, preset = 'Genera
   const details = getSp500CompanyDetails(symbol);
   const isUp = metrics.dayPctChange >= 0;
   const price = metrics.latestPrice.toFixed(2);
-  const pe = details.pe;
-  const fwdPe = details.fwdPe;
-  const fcf = details.fcf; // already formatted with a leading "$"
-  const revenueGrowth = details.revenueGrowth;
-  const epsGrowth = details.epsGrowth;
+  const pe = details?.pe;
+  const fwdPe = details?.fwdPe;
+  const fcf = details?.fcf; // already formatted with a leading "$"
+  const revenueGrowth = details?.revenueGrowth;
+  const epsGrowth = details?.epsGrowth;
   const high = metrics.high52.toFixed(2);
   const low = metrics.low52.toFixed(2);
+
+  // Without a directory record there are no fundamentals to write about. Fall back to
+  // the technical narrative, which is built purely from the price series, rather than
+  // interpolating "undefined" into a valuation or earnings thesis.
+  if (!details) preset = 'Technical';
 
   // Generate tailored paragraph based on selected focus category
   let summaryParagraph = '';
@@ -369,6 +406,14 @@ ${symbol} exhibits high-conviction market positioning in Q3 2026, trading near *
 - **52-Week High Re-Test Target:** **$${high}**
 - **52-Week Floor Base:** **$${low}**
 - **Overall Rating:** **Top 2026 Portfolio Conviction Pick**.`;
+  }
+
+  if (!details) {
+    summaryParagraph += `
+
+> **${symbol} is not in the bundled S&P 500 reference directory**, so no fundamentals
+> (P/E, growth, free cash flow, analyst target) are available for it. The levels above
+> are derived from the price series only.`;
   }
 
   const driversMap = {

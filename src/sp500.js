@@ -122,26 +122,19 @@ export function searchSp500Companies(query) {
   return exact;
 }
 
+// Returns the directory record for a symbol, or null when the symbol is not one of
+// the 79 constituents above.
+//
+// Null, deliberately: this used to synthesise a company for any unknown symbol — a
+// name, a price derived from the first character's char code, a market cap, a P/E and
+// a "Buy" rating — and the UI displayed those invented figures as though they were
+// real. Callers must handle null and show that fundamentals are unavailable instead.
 export function getSp500CompanyDetails(symbol) {
   const sym = symbol.toUpperCase().trim().replace(/\s+/g, '');
 
-  const match = SP500_COMPANIES.find((c) => c.symbol === sym || c.symbol === symbol.toUpperCase().trim());
-  if (match) return match;
-
-  return {
-    symbol: sym,
-    name: `${sym} Corporation (S&P 500)`,
-    sector: 'S&P 500 Constituent',
-    price: Number((110 + (sym.charCodeAt(0) * 5) % 350).toFixed(2)),
-    changePct: 1.25,
-    cap: '$85.4B',
-    pe: 22.4,
-    fwdPe: 18.2,
-    epsGrowth: '+14.2%',
-    revenueGrowth: '+10.5%',
-    fcf: '$3.2B',
-    beta: 1.05,
-    rating: 'Buy',
-    targetPrice: Number((110 * 1.2).toFixed(2))
-  };
+  return (
+    SP500_COMPANIES.find(
+      (c) => c.symbol === sym || c.symbol === symbol.toUpperCase().trim()
+    ) ?? null
+  );
 }

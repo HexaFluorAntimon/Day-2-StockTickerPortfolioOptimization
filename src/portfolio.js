@@ -83,7 +83,9 @@ export function generateBasketSeries(symbols, days = 500) {
   const series = {};
   for (const sym of symbols) {
     const details = getSp500CompanyDetails(sym);
-    const beta = Number(details.beta) || 1;
+    // Baskets are built from the directory, so a record is expected; beta 1 is a
+    // neutral fallback for anything added outside that path.
+    const beta = Number(details?.beta) || 1;
     const rand = mulberry32(hashSymbol(sym));
 
     // Idiosyncratic vol: higher-beta names also carry more stock-specific noise
@@ -105,11 +107,11 @@ export function generateBasketSeries(symbols, days = 500) {
       p *= 1 + r;
       prices.push(p);
     }
-    const scale = (Number(details.price) || 100) / prices[prices.length - 1];
+    const scale = (Number(details?.price) || 100) / prices[prices.length - 1];
 
     series[sym] = {
       symbol: sym,
-      name: details.name,
+      name: details?.name ?? sym,
       beta,
       prices: prices.map(v => Number((v * scale).toFixed(4))),
       returns: daily
@@ -194,8 +196,8 @@ export async function fetchBasketSeries(symbols, apiKey, outputsize = 500) {
     const prices = dates.map(d => raw[sym].get(d));
     series[sym] = {
       symbol: sym,
-      name: getSp500CompanyDetails(sym).name,
-      beta: Number(getSp500CompanyDetails(sym).beta) || 1,
+      name: getSp500CompanyDetails(sym)?.name ?? sym,
+      beta: Number(getSp500CompanyDetails(sym)?.beta) || 1,
       prices,
       returns: toSimpleReturns(prices)
     };

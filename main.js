@@ -482,10 +482,16 @@ function renderFundamentals() {
   const c = state.companyData;
   if (!c) return;
 
+  // Fundamentals always come from the bundled S&P 500 reference set, never live — and
+  // for a symbol outside that set there are none. Say that outright, so a grid of
+  // "N/A" does not read as a failed fetch.
+  const inReferenceSet = c.inReferenceSet !== false;
+
   if (el.fundamentalsBadge) {
-    // Fundamentals always come from the bundled S&P 500 reference set, never live
-    el.fundamentalsBadge.textContent = 'Reference data';
-    el.fundamentalsBadge.className = 'tag is-neutral';
+    el.fundamentalsBadge.textContent = inReferenceSet
+      ? 'Reference data'
+      : 'Not in reference set';
+    el.fundamentalsBadge.className = inReferenceSet ? 'tag is-neutral' : 'tag is-accent';
   }
 
   el.mCap.textContent = c.marketCap;
