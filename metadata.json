@@ -1,6 +1,5 @@
 {
-  "name": "Aura by JLMG",
-  "description": "Real-time S&P 500 stock and financial intelligence by Aura by JLMG powered by live NewsAPI and Twelve Data.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "Aura — Day 2: Portfolio Optimisation",
+  "description": "Two-view SPA: S&P 500 stock analysis with live news, plus browser-side portfolio optimisation solved with quadratic programming.",
+  "requestFramePermissions": []
 }

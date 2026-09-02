@@ -1,85 +1,109 @@
-# genai-finance-spa-template
+# Aura — Day 2: Portfolio Optimisation
 
-The single page application template for students.
+Two-view single-page application. **Markets** analyses one equity at a time across the
+full S&P 500 with live news; **Portfolio** builds a basket and solves for its optimal
+weights with real quadratic programming, in the browser.
 
-**Live demo:** https://kwartler.github.io/vienna-genai-spa-template/
+Built for **Generative AI in Finance**, Executive Academy WU (Aug 2026) — Day 2 repository.
 
-> **⚠️ First-run setup (do this once): in your repo go to Settings → Pages and set Source to "GitHub Actions".** Without it your deployed page will be broken or unstyled. Full steps in [SETUP.md](SETUP.md).
+**Live:** _enable GitHub Pages (Settings → Pages → Source: GitHub Actions), then the URL appears here_
 
-## Local development
+> **Day 1 is the starting point** — one ticker, technical indicators, an LLM research note
+> → [aura-day1-stocks](https://github.com/HexaFluorAntimon/Single-Page-Application-Nr1)
 
-Step by step, the first time:
+---
 
-1. Open a terminal. On a Mac, press `Cmd + Space`, type `Terminal`, and press `Enter`.
+## What Day 2 adds
 
-2. Change into the folder you cloned, the one that contains `package.json`. For example, if it is on your Desktop:
+| | |
+|---|---|
+| **S&P 500 universe** | Searchable directory of the full index, replacing Day 1's nine-name reference set. |
+| **Live news** | NewsAPI headlines per ticker with a bullish / bearish / neutral read, replacing the curated feed. |
+| **Portfolio view** | A second view, reachable from the header and deep-linkable by URL hash. |
+| **Optimisation** | Minimum variance and maximum Sharpe solved with quadratic programming, plus inverse-volatility and equal-weight baselines. |
+| **Risk analytics** | Covariance and correlation matrices, a diverging correlation heatmap, and rolling correlation, Sharpe and beta. |
 
-   ```bash
-   cd ~/Desktop/your-repo-name
-   ```
+## How the optimiser actually works
 
-3. Install the dependencies. You only need to do this once:
+The weights are solved, not approximated. The app uses [`quadprog`](https://www.npmjs.com/package/quadprog)
+— a JavaScript port of R's `quadprog`, implementing the **Goldfarb–Idnani dual active-set
+method** — so both objectives are genuine constrained quadratic programs:
 
-   ```bash
-   npm install
-   ```
+- **Minimum variance** — minimise `wᵀΣw` subject to `Σw = 1` and `0 ≤ wᵢ ≤ cap`.
+- **Maximum Sharpe** — the Cornuejols–Tütüncü transformation turns the ratio into a QP in
+  a scaled variable `y`, which is then normalised back to weights.
 
-4. Start the local development server:
+Because a sample covariance matrix from a short window is often only positive
+*semi*-definite, a small ridge is added to Σ before solving. Solutions are verified against
+the KKT conditions, and a projected-gradient fallback (Euclidean projection onto the capped
+simplex) runs if the dual method fails to converge. A position cap — 40% by default — keeps
+maximum Sharpe from collapsing onto a single name.
 
-   ```bash
-   npm run dev
-   ```
+**All of it runs client-side.** There is no server and no solver service.
 
-5. The terminal prints a local address, usually `http://localhost:5173`. Open that address in your web browser. The page reloads automatically every time you save a file.
+## The rule the app follows
 
-To stop the server, click back on the terminal and press `Ctrl + C`.
+**Arithmetic from the code, language from the model.** Every indicator, covariance,
+weight and Sharpe ratio is computed in JavaScript. The LLM never calculates anything — it
+only reads finished numbers and explains them. That split is what makes the output
+checkable.
+
+## Running it
+
+```bash
+npm install
+npm run dev      # http://localhost:3000
+```
+
+`npm run build` produces a static `dist/`. Pushing to `main` deploys it to GitHub Pages via
+`.github/workflows/deploy.yml`. **One-time setup:** Settings → Pages → Source: **GitHub
+Actions**. Left on "Deploy from a branch", the build runs but its output is ignored and the
+page comes out unstyled.
 
 ## API keys
 
-This app calls two services, and needs a key for each before it returns anything. **Both keys are entered in the app's form fields at run time. Neither is stored in the code.**
+All three are optional and entered in the app at run time. None is ever written to a file
+or committed — they live in the browser tab only.
 
-1. **Twelve Data (price data):** get a free key at https://twelvedata.com/pricing. The free plan covers all US stocks and ETFs, capped at 8 requests per minute and 800 per day.
-2. **OpenRouter (the AI research note):** get a key at https://openrouter.ai/.
+| Service | What it unlocks | Free key |
+|---|---|---|
+| Twelve Data | Real daily bars instead of the model series | [twelvedata.com](https://twelvedata.com/pricing) |
+| OpenRouter | A live LLM research note instead of the offline fallback | [openrouter.ai](https://openrouter.ai/) |
+| NewsAPI | Live headlines instead of the curated feed | [newsapi.org](https://newsapi.org/) |
 
-Because no key is ever written into a file or committed, this repo is safe to make public and the deployed page is safe to share, including with prospective employers. Each visitor supplies their own keys, which stay in their browser tab only and are cleared on reload.
+Without keys the app is fully explorable — it labels the chart **Model dataset** and falls
+back to an offline research note, rather than pretending the data is live.
 
-> Note: because this is a static app with no server, a typed key is sent straight from the browser to Twelve Data/OpenRouter over HTTPS while the app runs. That is fine for a classroom or portfolio demo. A production app would add a backend proxy so keys never reach the browser at all.
+> Because this is a static app with no backend, a typed key goes straight from the browser
+> to the service over HTTPS. That is fine for a classroom or portfolio demo. A production
+> app would proxy the calls so keys never reach the browser at all.
 
 ## Troubleshooting API errors
 
-When a call fails, the app shows the real reason returned by the service, in the form `(HTTP <code>) <hint> <message>`. Read the code first, then the message.
-
-Common **OpenRouter** (research note) codes:
+Failed calls surface the real reason as `(HTTP <code>) <hint> <message>`. Read the code first.
 
 | Code | Meaning | What to do |
 |---|---|---|
-| 401 | Key is invalid or missing | Recheck the OpenRouter key you pasted, watch for a stray space |
-| 402 | Out of credits (the model is paid) | Add a little credit at https://openrouter.ai/settings/credits, or switch to a free model |
-| 429 | Rate limited | Wait a moment, then try again |
-| 400, "Provider returned error" | The model provider rejected the request | Read the part after `[provider: ...]`, it names the real problem (often a parameter limit) |
+| 401 | Key invalid or missing | Recheck the pasted key, watch for a stray space |
+| 402 | Out of credits (OpenRouter, paid model) | Add credit, or switch to a free model |
+| 429 | Rate limited | Twelve Data's free plan allows 8 requests/minute, 800/day — wait and retry |
+| 400 "Provider returned error" | The model provider rejected the request | Read the part after `[provider: ...]` |
 
-The most common **400** for this app was a reasoning model refusing a small token budget. This template already sets `max_tokens: 2000` and `reasoning: { enabled: false }` in `main.js` to avoid it, so if you change the model or those values and see a 400 again, that is the first thing to check.
+The most common 400 is a reasoning model refusing a small token budget; `main.js` sets
+`max_tokens: 2000` and `reasoning: { enabled: false }` to avoid it.
 
-**Twelve Data** (price data) errors show their own message too. Usually it is an invalid key, an unknown ticker, or the free plan's limit (8 requests per minute, 800 per day) being hit, in which case wait a minute and retry.
+## Layout
 
-## Deploying to GitHub Pages
-
-Every push to `main` builds the app and redeploys it automatically. No tags or version bumps needed.
-
-```bash
-git add .
-git commit -m "your change"
-git push
+```
+index.html          markup, Tailwind theme tokens, both views
+main.js             app state, rendering, Chart.js, view routing
+style.css           design system: colour tokens and components
+src/indicators.js   SMA, EMA, RSI, MACD, Bollinger, summary metrics
+src/data.js         price fetch, LLM synthesis, fallback news
+src/sp500.js        the S&P 500 directory and search
+src/newsapi.js      live headline fetch and sentiment read
+src/portfolio.js    returns, covariance, the QP solvers, rolling metrics
 ```
 
-The site goes live at `https://<your-username>.github.io/<your-repo-name>/` about a minute later. You can also trigger a redeploy manually from the repo's **Actions** tab (Build and Deploy, "Run workflow").
-
-### One-time setup (do this once per repo)
-
-In your repo on GitHub: **Settings, then Pages, then set Source to "GitHub Actions".**
-
-If Source is left on "Deploy from a branch," the build runs but its output is ignored and you will see a broken or unstyled page.
-
-## Notes
-
-- Asset paths in `index.html` are relative (`./style.css`, `./main.js`) and `vite.config.js` sets `base: './'`. This is what makes the site work under the `/<repo-name>/` subpath that GitHub Pages uses. Do not change these to start with a leading `/`.
+Asset paths are relative and `vite.config.js` sets `base: './'` — this is what makes the
+site work under the `/<repo-name>/` subpath GitHub Pages uses. Do not give them a leading `/`.
